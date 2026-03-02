@@ -1,0 +1,77 @@
+================================================================================
+DISCOVERY DOMAIN - EVENT CATALOG
+================================================================================
+Domain: shelf-discovery-domain
+Event Source: hand-made.shelf-discovery-domain
+Last Updated: 2026-02-16
+
+================================================================================
+PRODUCED EVENTS
+================================================================================
+
+Event: search.performed.v1
+Status: 🔲 PLANNED
+--------------------------------------------------------------------------------
+Description:
+  Published when a user performs a search query.
+
+Trigger: TBD
+Republish Lambda: TBD
+Payload Schema: TBD
+Consumers: analytics-domain
+
+================================================================================
+CONSUMED EVENTS
+================================================================================
+
+Event: product.shelf.item.updated.v1
+Source: hand-made.product-domain
+Status: ✅ IMPLEMENTED & ACTIVE
+--------------------------------------------------------------------------------
+Handler Lambda: product-shelf-item-updated-consumer-lambda
+Action: Index product in search, update discovery feed
+Handler Location: lib/functions/lambda/event-consumer/product-shelf-item-updated-consumer-lambda.ts
+SQS Queue: product-shelf-updated-consumer-queue
+EventBridge Rule: Routes product.shelf.item.updated.v1 → SQS queue
+
+Idempotency:
+  Key: shelfItemId
+  TTL: 24 hours
+
+Search Indexing:
+  - Adds/updates search index entry in DynamoDB
+  - Creates searchable text from title, description, categoryId
+  - Maintains GSIs for product and maker lookup
+  - TODO: Integrate with Elasticsearch/OpenSearch or Algolia for advanced search
+
+Published Events:
+  - search.indexed.v1 (audit trail)
+
+Error Handling:
+  - DLQ: product-shelf-updated-consumer-dlq
+  - Max Retries: 3
+  - Log Retention: ONE_WEEK
+
+GSI Information:
+  - ProductIdIndex: partitionKey=productId (for looking up all shelf items for a product)
+  - MakerIdIndex: partitionKey=makerId (for looking up all items by a maker)
+
+--------------------------------------------------------------------------------
+
+Event: product.published.v1
+Source: hand-made.product-domain
+Status: 🔲 PLANNED
+--------------------------------------------------------------------------------
+Handler Lambda: TBD
+Action: Index product in search engine, update discovery feed
+
+--------------------------------------------------------------------------------
+
+Event: maker.profile.updated.v1
+Source: hand-made.maker-domain
+Status: 🔲 PLANNED
+--------------------------------------------------------------------------------
+Handler Lambda: TBD
+Action: Update maker in search index
+
+================================================================================

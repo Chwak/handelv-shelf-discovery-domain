@@ -1,0 +1,59 @@
+# Discovery Domain - Frontend Data Requirements
+
+## Overview
+All data captured from frontend for search and discovery.
+
+**Domain:** Discovery Domain
+**Purpose:** Search, trending, and curated collections
+**Last Updated:** 2026-01-31
+
+---
+
+## 1. SEARCH
+
+### 1.1 Search Products
+**Endpoint**: `GET /search`
+
+```typescript
+{
+  q: string,                            // Search query
+  categoryId?: string,
+  minPrice?: number,
+  maxPrice?: number,
+  makerUserId?: string,
+  sortBy?: 'relevance' | 'price_low' | 'price_high' | 'newest' | 'rating',
+}
+```
+
+---
+
+## 2. DISCOVERY FEEDS
+
+### 2.1 Get Trending
+**Endpoint**: `GET /discovery/trending`
+
+Query Params: `categoryId`, `timeframe`
+
+### 2.2 Get Top Rated
+**Endpoint**: `GET /discovery/top-rated`
+
+### 2.3 Get Featured Collections
+**Endpoint**: `GET /collections/featured`
+
+### 2.4 Get Collection Details
+**Endpoint**: `GET /collections/{collectionId}`
+
+---
+
+## API Endpoints
+
+- `GET /search` - Full-text search
+- `GET /discovery/trending` - Trending products
+- `GET /discovery/top-rated` - Top rated products
+- `GET /collections/featured` - Featured editorial collections
+- `GET /collections/{id}` - Collection details
+- `GET /collections/{id}/products` - Products in collection
+
+---
+
+**Note:** Discovery is primarily event-driven. See `inter-domain-data-requirements.txt`.

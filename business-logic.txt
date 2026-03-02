@@ -1,0 +1,228 @@
+# Discovery Domain - Business Logic
+
+## Domain Purpose
+The Discovery Domain manages search indexes, discovery feeds, ranking logic, and recommendations. This domain is read-heavy and eventually consistent, focused on making collectors browse longer.
+
+## Data Layer Ownership
+The Discovery Domain owns and manages the following DynamoDB tables:
+- search_documents: Search index documents for products
+- curated_collections: Curated content collections
+- collection_products: Products within curated collections
+
+## Business Rules
+
+### 1. Search Index Management
+- Search documents are created/updated from product events
+- Search documents aggregate data from multiple domains
+- Index is eventually consistent (updates via events)
+- Full-text search is handled by OpenSearch/Elasticsearch
+- Search documents include ranking signals
+
+### 2. Ranking Signals
+- View count: Number of times product is viewed
+- Save count: Number of times product is saved
+- Order count: Number of orders for product
+- Rating: Average rating from reviews
+- Recency: How recently product was updated
+- Ranking algorithm combines multiple signals
+
+### 3. Discovery Feeds
+- Feeds are generated based on user preferences
+- Feeds can be personalized or general
+- Feed generation is asynchronous
+- Feeds are cached for performance
+- Feed updates are triggered by events
+
+### 4. Curated Collections
+- Collections are manually curated by platform
+- Collections have titles, descriptions, and images
+- Collections can be featured
+- Collection products are ordered
+- Collections are published at specific times
+
+### 5. Recommendation Logic
+- Recommendations use collaborative filtering
+- Recommendations consider user behavior
+- Recommendations are generated asynchronously
+- Recommendation inputs come from events
+- Recommendations are cached
+
+### 6. Search and Filter
+- Search supports full-text queries
+- Filters include category, price range, rating, etc.
+- Search results are ranked by relevance
+- Search performance is optimized with indexes
+- Search queries are logged for analytics
+
+## Data Layer Interactions
+
+### Read Operations
+- Read search documents by product_id
+- Read search documents by category_id
+- Read curated collections
+- Read collection products
+- Search with full-text queries
+- Filter and rank results
+
+### Write Operations
+- Create/update search documents (from events)
+- Create/update curated collections
+- Add/remove collection products
+- Update ranking signals
+- Rebuild search index (batch operation)
+
+### Data Integrity Rules
+- Search documents must reference valid product_id from Product Domain
+- Collection products must reference valid product_id
+- Ranking signals are aggregated from events
+- Search documents are eventually consistent
+- Curated collections are manually managed
+
+## Event-Driven Communication
+
+### Events Published
+- SearchIndexUpdated: When search index is updated
+- FeedGenerated: When discovery feed is generated
+- RecommendationsUpdated: When recommendations are updated
+
+### Events Consumed
+- ProductPublished: From Product Domain - creates search document
+- ProductUpdated: From Product Domain - updates search document
+- ProductUnpublished: From Product Domain - removes search document
+- ServiceSaved: From Collector Domain - updates save count
+- OrderCreated: From Order Domain - updates order count
+- ReviewSubmitted: From Review & Trust Domain - updates rating
+- ProductViewed: From frontend - updates view count
+
+## Cross-Domain Boundaries
+
+### What This Domain Owns
+- Search indexes
+- Discovery feeds
+- Ranking logic
+- Recommendation inputs
+- Curated collections
+
+### What This Domain Does NOT Own
+- Source-of-truth product data (Product Domain)
+- Business rules (other domains)
+- User profiles (Collector/Maker Domains)
+- Order data (Order Domain)
+
+## Business Logic Constraints
+1. Search documents are eventually consistent
+2. Ranking signals are aggregated from events
+3. Search index updates are asynchronous
+4. Curated collections are manually managed
+5. Recommendations are generated asynchronously
+6. Feed generation is triggered by events
+7. Search performance must be optimized
+8. Index updates must not block reads
+
+## Domain Structure & Implementation
+
+### Directory Structure
+The Discovery Domain follows a structure similar to `/Users/jred/AWS/aedcor-backend/support_backend/lib`:
+
+```
+lib/
+├── constructs/
+│   ├── dynamodb/
+│   │   └── discovery-tables/
+│   │       └── discovery-tables-construct.ts
+│   ├── opensearch/
+│   │   └── search-cluster/
+│   │       └── search-cluster-construct.ts
+│   ├── lambda/
+│   │   └── discovery/
+│   │       ├── search-products/
+│   │       ├── update-search-index/
+│   │       ├── generate-feed/
+│   │       ├── generate-recommendations/
+│   │       ├── get-curated-collection/
+│   │       └── event-consumer/
+│   └── appsync/
+│       └── discovery-appsync/
+│           └── discovery-appsync-construct.ts
+├── functions/
+│   ├── lambda/
+│   │   └── discovery/
+│   │       ├── search-products/
+│   │       │   └── search-products-lambda.js
+│   │       ├── update-search-index/
+│   │       │   └── update-search-index-lambda.js
+│   │       ├── generate-feed/
+│   │       │   └── generate-feed-lambda.js
+│   │       ├── generate-recommendations/
+│   │       │   └── generate-recommendations-lambda.js
+│   │       ├── get-curated-collection/
+│   │       │   └── get-curated-collection-lambda.js
+│   │       └── event-consumer/
+│   │           └── event-consumer-lambda.js
+│   └── appsync-resolvers/
+│       └── discovery/
+│           ├── search-products-resolver.js
+│           └── get-feed-resolver.js
+└── utils/
+    ├── response-utils.ts
+    ├── ranking-utils.ts
+    ├── search-client.ts
+    └── event-publisher.ts
+```
+
+### Data Layer Interaction Patterns
+
+#### Direct Data Access
+- **Search Documents**: Direct DynamoDB access via `search_documents` table using `product_id` as partition key
+- **Curated Collections**: Direct DynamoDB access via `curated_collections` table using `collection_id` as partition key
+- **Collection Products**: Direct DynamoDB access via `collection_products` table using `collection_id` (PK) and `product_id` (SK)
+- **OpenSearch Index**: Full-text search via OpenSearch cluster
+
+#### Query Patterns
+- **Get search document**: Single item read by `product_id`
+- **Search products**: OpenSearch query with filters and ranking
+- **Get curated collection**: Single item read by `collection_id`
+- **Get collection products**: Query by `collection_id`
+- **List curated collections**: Scan or GSI query
+
+#### Write Patterns
+- **Create/Update search document**: PutItem (from events, eventually consistent)
+- **Create curated collection**: PutItem (manual operation)
+- **Add to collection**: PutItem with collection validation
+- **Update ranking signals**: UpdateItem with atomic increment operations
+
+### Business Logic Implementation
+
+#### Search Index Management
+- Search documents updated asynchronously from domain events
+- OpenSearch index synced from DynamoDB search documents
+- Full-text search handled by OpenSearch with ranking
+- Search results combined with DynamoDB data for complete product info
+
+#### Ranking Algorithm
+- Ranking signals aggregated from multiple events
+- Signals include: view count, save count, order count, rating, recency
+- Ranking algorithm in `ranking-utils.ts` combines signals with weights
+- Ranking updated asynchronously without blocking reads
+
+#### Event Handling
+- **Event Consumer Lambda**: Processes events from other domains
+  - `ProductPublished` → Creates search document
+  - `ProductUpdated` → Updates search document
+  - `ProductUnpublished` → Removes search document
+  - `ServiceSaved` → Updates save count signal
+  - `OrderCreated` → Updates order count signal
+  - `ReviewSubmitted` → Updates rating signal
+  - `ProductViewed` → Updates view count signal
+
+#### Data Consistency
+- Search documents are eventually consistent (updated from events)
+- OpenSearch index is eventually consistent with DynamoDB
+- Ranking signals updated asynchronously
+- Curated collections are immediately consistent (manual operations)
+
+#### Error Handling
+- Search errors → Return 500 Internal Server Error with fallback
+- Invalid collection → Return 404 Not Found
+- Search timeout → Return 504 Gateway Timeout with partial results
+- Index update failures → Log and retry asynchronously

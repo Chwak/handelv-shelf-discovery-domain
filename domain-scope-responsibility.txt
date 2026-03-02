@@ -1,0 +1,205 @@
+================================================================================
+DISCOVERY DOMAIN - SCOPE & RESPONSIBILITY
+================================================================================
+
+DOMAIN PURPOSE
+================================================================================
+
+The Discovery Domain manages search indexes, discovery feeds, ranking logic, and recommendations. This is a read-heavy, eventually consistent domain that optimizes data for search and discovery without owning source-of-truth data.
+
+================================================================================
+WHAT THIS DOMAIN OWNS
+================================================================================
+
+1. Search Indexes
+   - Search documents (optimized for search)
+   - Search metadata
+   - Search ranking signals
+
+2. Discovery Feeds
+   - Personalized feed items
+   - Feed ranking algorithms
+   - Feed generation logic
+
+3. Recommendation Data
+   - Recommendation inputs
+   - Recommendation algorithms
+   - Recommendation scores
+
+4. Curated Collections
+   - Admin-created curated collections
+   - Curated collection products
+   - Featured content
+
+5. Ranking Signals
+   - Popularity signals (saves, orders, views)
+   - Rating signals
+   - Engagement signals
+   - Recency signals
+
+================================================================================
+WHAT THIS DOMAIN IS RESPONSIBLE FOR
+================================================================================
+
+1. Search Functionality
+   - Indexing products for search
+   - Processing search queries
+   - Ranking search results
+   - Providing search suggestions
+
+2. Feed Generation
+   - Generating personalized feeds
+   - Generating trending feeds
+   - Generating new products feeds
+   - Ranking feed items
+
+3. Recommendations
+   - Generating personalized recommendations
+   - Using collaborative filtering
+   - Using content-based filtering
+   - Updating recommendations based on behavior
+
+4. Index Maintenance
+   - Updating search index from events
+   - Maintaining index consistency
+   - Updating ranking signals
+   - Optimizing search performance
+
+5. Data Synchronization
+   - Consuming events from other domains
+   - Updating indexes asynchronously
+   - Maintaining eventual consistency
+   - Handling index updates
+
+================================================================================
+WHAT THIS DOMAIN DOES NOT OWN
+================================================================================
+
+1. Source-of-Truth Data
+   - Product data (Product Domain)
+   - Maker data (Maker Domain)
+   - Collector data (Collector Domain)
+   - Order data (Order Domain)
+   - Review data (Review Trust Domain)
+
+2. Business Rules
+   - Product availability rules (Product Domain)
+   - Order creation rules (Order Domain)
+   - Review creation rules (Review Trust Domain)
+
+3. User Data
+   - User profiles (Collector/Maker Domains)
+   - User preferences (Collector Domain)
+   - User authentication (Auth Essentials Domain)
+
+4. Transaction Data
+   - Orders (Order Domain)
+   - Payments (Payment Domain)
+   - Payouts (Payout Domain)
+
+================================================================================
+DOMAIN BOUNDARIES
+================================================================================
+
+1. Input Boundaries
+   - Receives search queries
+   - Receives feed generation requests
+   - Receives recommendation requests
+   - Consumes events from other domains (ProductPublished, ItemSaved, OrderCreated, etc.)
+   - Does NOT receive direct data updates (only via events)
+
+2. Output Boundaries
+   - Provides search results
+   - Provides feed items
+   - Provides recommendations
+   - Provides curated collections
+   - Does NOT modify source-of-truth data
+   - Does NOT create or update products
+
+3. Data Boundaries
+   - Owns:
+      - `search_documents` (denormalized search cache)
+      - `curated_collections` table
+      - `collection_products` table
+   - Does NOT own:
+      - Source-of-truth product data (Product Domain)
+      - Maker profiles or collector profiles
+   - Integration Notes:
+      - Consumes `ProductPublished`, `ItemSaved`, `OrderCreated`, `ReviewSubmitted` events to update indexes.
+      - Maintains read-optimized documents; does not attempt to be source-of-truth for any business entity.
+
+4. Integration Boundaries
+   - Consumes `ProductPublished`, `ItemSaved`, `OrderCreated`, `ReviewSubmitted`, and related events to update indexes
+   - Publishes optional analytics or monitoring events
+   - Consumes events from Review Trust Domain
+   - Publishes optional analytics events
+   - Does NOT directly access other domain databases
+
+================================================================================
+KEY RESPONSIBILITIES
+================================================================================
+
+1. Optimize Discovery
+   - Provide fast search functionality
+   - Generate relevant recommendations
+   - Create engaging discovery feeds
+   - Surface trending content
+
+2. Maintain Search Index
+   - Keep index up-to-date with source data
+   - Update ranking signals
+   - Optimize search performance
+   - Handle index updates asynchronously
+
+3. Personalize Experience
+   - Generate personalized feeds
+   - Provide personalized recommendations
+   - Use collector behavior signals
+   - Adapt to user preferences
+
+4. Support Discovery Features
+   - Enable search across products
+   - Enable curated collections
+   - Enable trending content
+   - Enable new products discovery
+
+================================================================================
+CROSS-DOMAIN DEPENDENCIES
+================================================================================
+
+This Domain Provides To:
+- Frontend: Search results, feeds, recommendations
+- Analytics Domain (if exists): SearchPerformed, FeedGenerated events
+
+This Domain Consumes From:
+- Product Domain: ProductPublished, ProductUpdated, ProductPaused events
+- Collector Domain: ItemSaved, ItemUnsaved, MakerFollowed, MakerUnfollowed, CollectionCreated, CollectorPreferenceUpdated events
+- Order Domain: OrderCreated events
+- Review Trust Domain: ReviewSubmitted, ReviewApproved events
+
+================================================================================
+TECHNICAL SCOPE
+================================================================================
+
+Technologies:
+- DynamoDB (search_documents, curated_collections, collection_products)
+- AppSync GraphQL API
+- Lambda functions for search, feed, and recommendation logic
+- Optional: OpenSearch/Elasticsearch for advanced search
+
+Data Storage:
+- search_documents table
+- curated_collections table
+- collection_products table
+
+API Type:
+- GraphQL API (AppSync)
+
+Event Communication:
+- EventBridge for consuming events from other domains
+
+Note: This domain is read-heavy and eventually consistent. It maintains optimized indexes for search and discovery but does not own source-of-truth data.
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

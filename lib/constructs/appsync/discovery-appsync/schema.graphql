@@ -1,0 +1,124 @@
+type Query @aws_cognito_user_pools {
+  searchShelfItems(
+    query: String
+    makerUserId: ID
+    categoryId: ID
+    minPrice: Float
+    maxPrice: Float
+    minRating: Float
+    materials: [String!]
+    limit: Int
+    nextToken: String
+  ): SearchResultsConnection
+  interpretCollectorQuery(naturalLanguageQuery: String!): InterpretedSearchFilters
+  getFeed(
+    userId: ID
+    feedType: FeedType
+    limit: Int
+    nextToken: String
+  ): FeedConnection
+  getRecommendations(userId: ID!, limit: Int, nextToken: String): RecommendationsConnection
+  getCuratedCollection(collectionId: ID!): CuratedCollection
+  listCuratedCollections(limit: Int, nextToken: String): CuratedCollectionsConnection
+}
+
+type Mutation @aws_cognito_user_pools {
+  updateShelfItemIndex(shelfItemId: ID!): Boolean
+  generateFeed(userId: ID!, feedType: FeedType!): Boolean
+  generateRecommendations(userId: ID!): Boolean
+}
+
+
+enum FeedType {
+  PERSONALIZED
+  TRENDING
+  NEW_ARRIVALS
+  FOLLOWED_MAKERS
+}
+
+type SearchResultsConnection {
+  items: [SearchResult!]!
+  nextToken: String
+  totalCount: Int
+}
+
+type SearchResult {
+  shelfItemId: ID!
+  title: String!
+  description: String!
+  makerUserId: ID!
+  categoryId: ID!
+  basePrice: Float!
+  rating: Float
+  viewCount: Int
+  saveCount: Int
+  orderCount: Int
+  relevanceScore: Float
+}
+
+type InterpretedSearchFilters {
+  query: String
+  categoryId: ID
+  minPrice: Float
+  maxPrice: Float
+  materials: [String!]
+  summary: String
+}
+
+type FeedConnection {
+  items: [FeedItem!]!
+  nextToken: String
+}
+
+type FeedItem {
+  shelfItemId: ID!
+  title: String!
+  description: String!
+  makerUserId: ID!
+  basePrice: Float!
+  rating: Float
+  primaryImageUrl: String
+  feedScore: Float
+  createdAt: AWSDateTime!
+}
+
+type RecommendationsConnection {
+  items: [Recommendation!]!
+  nextToken: String
+}
+
+type Recommendation {
+  shelfItemId: ID!
+  title: String!
+  description: String!
+  makerUserId: ID!
+  basePrice: Float!
+  rating: Float
+  primaryImageUrl: String
+  recommendationScore: Float
+  reason: String
+}
+
+type CuratedCollection {
+  collectionId: ID!
+  title: String!
+  description: String
+  imageUrl: String
+  featured: Boolean!
+  shelfItems: [ShelfItemProduct!]!
+  createdAt: AWSDateTime!
+  publishedAt: AWSDateTime
+}
+
+type CuratedCollectionsConnection {
+  items: [CuratedCollection!]!
+  nextToken: String
+}
+
+type ShelfItemProduct {
+  shelfItemId: ID!
+  order: Int!
+  title: String!
+  basePrice: Float!
+  primaryImageUrl: String
+}

@@ -1,0 +1,185 @@
+================================================================================
+DISCOVERY DOMAIN - WORKFLOW DOCUMENTATION
+================================================================================
+
+1. WORKFLOW
+================================================================================
+
+The Discovery Domain manages search indexes, discovery feeds, ranking logic, and recommendations. This is a read-heavy, eventually consistent domain.
+
+Main Workflows:
+
+1. Search Operations
+   - Search products by keywords, filters, categories
+   - Search results ranked by relevance
+   - Paginated search results
+
+2. Feed Generation
+   - Generate personalized discovery feed for collector
+   - Feed based on collector preferences, saved items, followed makers
+   - Feed items ranked by relevance and recency
+
+3. Recommendations
+   - Generate personalized recommendations for collector
+   - Recommendations based on browsing history, saved items, similar collectors
+   - Recommendations updated asynchronously
+
+4. Curated Collections
+   - Get curated collections (admin-created collections)
+   - List products in curated collection
+   - Curated collections for featured content
+
+5. Search Index Updates
+   - Update search index when products are published/updated
+   - Update ranking signals based on user behavior
+   - Asynchronous index updates from events
+
+================================================================================
+2. OPERATIONS TYPE
+================================================================================
+
+Operation Types:
+- Search Operations: Search products
+- Feed Operations: Generate feed
+- Recommendation Operations: Generate recommendations
+- Collection Operations: Get curated collection
+- Index Operations: Update search index (triggered by events)
+
+API Type: GraphQL API (AppSync)
+
+================================================================================
+3. OUTPUT OF EACH OPERATION (NO CODE, JUST DESCRIPTION)
+================================================================================
+
+3.1 Search Products Operation
+   Input: Search query (keywords), filters (category, price range, location), pagination parameters
+   Process:
+     - Searches search_documents table or external search service (OpenSearch/Elasticsearch)
+     - Applies filters and ranking algorithm
+     - Returns paginated results sorted by relevance
+   Output:
+     - Success: List of search results with product_id, title, description, maker_name, price, images, relevance_score, pagination info
+     - Error: Invalid search parameters, search service unavailable
+
+3.2 Generate Feed Operation
+   Input: Collector user ID, feed type (personalized, trending, new), pagination parameters
+   Process:
+     - Retrieves collector preferences and behavior signals
+     - Queries search_documents or feed_items table
+     - Applies personalized ranking algorithm
+     - Returns paginated feed items
+   Output:
+     - Success: List of feed items with product_id, title, description, maker_name, price, images, feed_score, pagination info
+     - Error: Invalid collector ID, feed generation failure
+
+3.3 Generate Recommendations Operation
+   Input: Collector user ID, recommendation type (similar products, makers, categories), limit
+   Process:
+     - Analyzes collector's saved items, browsing history, followed makers
+     - Uses collaborative filtering or content-based filtering
+     - Queries search_documents table with recommendation algorithm
+     - Returns personalized recommendations
+   Output:
+     - Success: List of recommended products with product_id, title, description, maker_name, price, images, recommendation_score, reason
+     - Error: Insufficient data for recommendations, recommendation service unavailable
+
+3.4 Get Curated Collection Operation
+   Input: Collection ID
+   Process:
+     - Retrieves curated collection from curated_collections table
+     - Returns collection metadata
+   Output:
+     - Success: Curated collection object with collection_id, name, description, created_at
+
+3.5 List Curated Collection Items Operation
+   Input: Collection ID, pagination parameters
+   Process:
+     - Queries collection_products table by collection_id
+     - Returns paginated list of products in collection
+   Output:
+     - Success: List of products in collection with product_id, title, description, maker_name, price, images, pagination info
+     - Error: Collection not found, invalid pagination parameters
+
+3.6 Update Search Index Operation (Event-Driven)
+   Input: Product data from ProductPublished or ProductUpdated event
+   Process:
+     - Creates or updates search document in search_documents table
+     - Indexes product title, description, tags, categories
+     - Updates ranking signals
+   Output:
+     - Success: Search document created/updated confirmation
+     - Error: Index update failure
+
+================================================================================
+4. GENERATED EVENTS - WHO, HOW TO BE COMMUNICATED WITH WHICH OTHER DOMAIN
+================================================================================
+
+Events Published:
+- SearchPerformed: Published when user performs search (optional, for analytics)
+  - Who: Discovery Domain
+  - How: EventBridge event bus
+  - Communicated with: Analytics Domain (if exists)
+  - Purpose: Track search behavior for improving search quality
+  - Event Data: collector_user_id, search_query, filters, result_count, timestamp
+
+- FeedGenerated: Published when feed is generated (optional, for analytics)
+  - Who: Discovery Domain
+  - How: EventBridge event bus
+  - Communicated with: Analytics Domain (if exists)
+  - Purpose: Track feed engagement
+  - Event Data: collector_user_id, feed_type, item_count, timestamp
+
+Events Consumed:
+- ProductPublished: From Product Domain
+  - Purpose: Add new product to search index
+  - Action: Create search document in search_documents table, update search index
+
+- ProductUpdated: From Product Domain
+  - Purpose: Update product in search index
+  - Action: Update search document with new product data
+
+- ProductPaused: From Product Domain
+  - Purpose: Remove or hide product from search results
+  - Action: Mark search document as inactive or remove from index
+
+- ItemSaved: From Collector Domain
+  - Purpose: Update ranking signals based on save behavior
+  - Action: Increment save_count signal for product in search document
+
+- ItemUnsaved: From Collector Domain
+  - Purpose: Update ranking signals
+  - Action: Decrement save_count signal for product
+
+- MakerFollowed: From Collector Domain
+  - Purpose: Update recommendation signals
+  - Action: Update recommendation algorithm inputs
+
+- MakerUnfollowed: From Collector Domain
+  - Purpose: Update recommendation signals
+  - Action: Update recommendation algorithm inputs
+
+- OrderCreated: From Order Domain
+  - Purpose: Update ranking signals based on order behavior
+  - Action: Increment order_count signal for product in search document
+
+- ReviewSubmitted: From Review Trust Domain
+  - Purpose: Update ranking signals based on reviews
+  - Action: Update rating signals in search document
+
+Cross-Domain Communication:
+- Product Domain: Consumes ProductPublished, ProductUpdated, ProductPaused events to maintain search index
+- Collector Domain: Consumes ItemSaved, ItemUnsaved, MakerFollowed, MakerUnfollowed events to update ranking and recommendation signals
+- Order Domain: Consumes OrderCreated events to update popularity signals
+- Review Trust Domain: Consumes ReviewSubmitted events to update rating signals
+
+Communication Method:
+- EventBridge: Primary method for consuming events from other domains
+- AppSync GraphQL: Direct queries from frontend for search and discovery
+- DynamoDB: Search documents and feed items stored in domain tables
+- SSM Parameters: No exports (read-only domain)
+
+Note: This domain is read-heavy and eventually consistent. It does not own source-of-truth data but maintains optimized indexes for search and discovery.
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

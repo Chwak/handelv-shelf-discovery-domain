@@ -1,0 +1,419 @@
+================================================================================
+DISCOVERY DOMAIN - INPUT VALIDATION RULES
+================================================================================
+
+This document defines all input validation rules for the Discovery Domain GraphQL API.
+All mutations and queries must validate inputs according to these rules.
+
+================================================================================
+QUERY: searchShelfItems
+================================================================================
+
+Input:
+- query: String (optional)
+- categoryId: ID (optional)
+- minPrice: Float (optional)
+- maxPrice: Float (optional)
+- minRating: Float (optional)
+- materials: [String!] (optional)
+- limit: Int (optional, default: 20, max: 100)
+- nextToken: String (optional)
+
+Validation Rules:
+1. query (if provided):
+   - Minimum length: 1 character (after trimming)
+   - Maximum length: 200 characters
+   - Trim leading/trailing whitespace
+   - Reject null bytes and control characters
+   - Can contain letters, numbers, spaces, and common punctuation
+
+2. categoryId (if provided):
+   - Must be a valid UUID or ID format
+   - Must reference an existing category
+
+3. minPrice (if provided):
+   - Must be a positive number
+   - Minimum: 0.01
+   - Maximum: 999999.99
+   - Must have at most 2 decimal places
+   - Cannot be negative
+
+4. maxPrice (if provided):
+   - Must be a positive number
+   - Minimum: 0.01
+   - Maximum: 999999.99
+   - Must have at most 2 decimal places
+   - Cannot be negative
+   - Must be greater than or equal to minPrice (if both provided)
+
+5. minRating (if provided):
+   - Must be a number between 0.0 and 5.0
+   - Must have at most 1 decimal place
+   - Cannot be negative or greater than 5.0
+
+6. materials (if provided):
+   - Must be a non-empty array
+   - Maximum 20 materials
+   - Each material:
+     * Minimum length: 2 characters
+     * Maximum length: 100 characters
+     * Cannot be all whitespace
+     * Trim leading/trailing whitespace
+
+7. limit:
+   - Must be between 1 and 100
+   - Default: 20 if not provided
+   - Must be a positive integer
+
+8. nextToken:
+   - Must be a valid pagination token if provided
+   - Cannot be empty string
+
+Business Rules:
+- At least one filter (query, categoryId, minPrice, maxPrice, minRating, materials) must be provided
+- Results are ranked by relevance score
+- Only ACTIVE products are returned
+- Search results are cached for performance
+
+Error Responses:
+- 400 Bad Request: Invalid input format
+- 401 Unauthorized: Not authenticated
+- 422 Unprocessable Entity: Validation failed (price range invalid, etc.)
+
+================================================================================
+QUERY: getFeed
+================================================================================
+
+Input:
+- userId: ID (optional)
+- feedType: FeedType (optional)
+- limit: Int (optional, default: 20, max: 100)
+- nextToken: String (optional)
+
+Validation Rules:
+1. userId (if provided):
+   - Must be a valid UUID or ID format
+   - Must match authenticated user's ID (or user must have admin permissions)
+
+2. feedType (if provided):
+   - Must be one of: PERSONALIZED, TRENDING, NEW_ARRIVALS, FOLLOWED_MAKERS
+   - Case-sensitive enum value
+
+3. limit:
+   - Must be between 1 and 100
+   - Default: 20 if not provided
+   - Must be a positive integer
+
+4. nextToken:
+   - Must be a valid pagination token if provided
+   - Cannot be empty string
+
+Business Rules:
+- If userId provided, user can only access their own feed (unless admin)
+- If feedType is PERSONALIZED or FOLLOWED_MAKERS, userId is required
+- Feed is generated based on user preferences and activity
+- Results are ranked by feed score
+- Only ACTIVE products are returned
+
+Error Responses:
+- 400 Bad Request: Invalid input format
+- 401 Unauthorized: Not authenticated
+- 403 Forbidden: Cannot access other user's feed
+- 422 Unprocessable Entity: userId required for personalized feeds
+
+================================================================================
+QUERY: getRecommendations
+================================================================================
+
+Input:
+- userId: ID! (required)
+- limit: Int (optional, default: 20, max: 100)
+- nextToken: String (optional)
+
+Validation Rules:
+1. userId:
+   - Must be a valid UUID or ID format
+   - Cannot be null or empty
+   - Must match authenticated user's ID (or user must have admin permissions)
+
+2. limit:
+   - Must be between 1 and 100
+   - Default: 20 if not provided
+   - Must be a positive integer
+
+3. nextToken:
+   - Must be a valid pagination token if provided
+   - Cannot be empty string
+
+Business Rules:
+- User can only access their own recommendations (unless admin)
+- Recommendations are generated based on:
+  * User's saved items
+  * User's order history
+  * User's followed makers
+  * Similar user preferences
+- Results are ranked by recommendation score
+- Only ACTIVE products are returned
+- Recommendations are cached and updated periodically
+
+Error Responses:
+- 400 Bad Request: Invalid input format
+- 401 Unauthorized: Not authenticated
+- 403 Forbidden: Cannot access other user's recommendations
+
+================================================================================
+QUERY: getCuratedCollection
+================================================================================
+
+Input:
+- collectionId: ID! (required)
+
+Validation Rules:
+1. collectionId:
+   - Must be a valid UUID or ID format
+   - Cannot be null or empty
+   - Must reference an existing curated collection
+
+Business Rules:
+- Collection must exist and be published
+- Collection is accessible to all authenticated users
+- Returns collection with featured products
+
+Error Responses:
+- 400 Bad Request: Invalid collectionId format
+- 401 Unauthorized: Not authenticated
+- 404 Not Found: Curated collection not found
+
+================================================================================
+QUERY: listCuratedCollections
+================================================================================
+
+Input:
+- limit: Int (optional, default: 20, max: 100)
+- nextToken: String (optional)
+
+Validation Rules:
+1. limit:
+   - Must be between 1 and 100
+   - Default: 20 if not provided
+   - Must be a positive integer
+
+2. nextToken:
+   - Must be a valid pagination token if provided
+   - Cannot be empty string
+
+Business Rules:
+- Returns only published curated collections
+- Results sorted by featured status and publishedAt descending
+- Accessible to all authenticated users
+
+Error Responses:
+- 400 Bad Request: Invalid input format
+- 401 Unauthorized: Not authenticated
+
+================================================================================
+MUTATION: updateSearchIndex
+================================================================================
+
+Input:
+- productId: ID! (required)
+
+Validation Rules:
+1. productId:
+   - Must be a valid UUID or ID format
+   - Cannot be null or empty
+   - Must reference an existing product
+
+Business Rules:
+- User must be admin or product owner
+- Updates search index for the product
+- Re-indexes product data for search
+- Operation is asynchronous
+
+Error Responses:
+- 400 Bad Request: Invalid productId format
+- 401 Unauthorized: Not authenticated
+- 403 Forbidden: Not authorized to update search index
+- 404 Not Found: Product not found
+
+================================================================================
+MUTATION: generateFeed
+================================================================================
+
+Input:
+- userId: ID! (required)
+- feedType: FeedType! (required)
+
+Validation Rules:
+1. userId:
+   - Must be a valid UUID or ID format
+   - Cannot be null or empty
+   - Must match authenticated user's ID (or user must have admin permissions)
+
+2. feedType:
+   - Must be one of: PERSONALIZED, TRENDING, NEW_ARRIVALS, FOLLOWED_MAKERS
+   - Case-sensitive enum value
+
+Business Rules:
+- User can only generate their own feed (unless admin)
+- Feed generation is asynchronous
+- Feed is cached after generation
+- Returns success status
+
+Error Responses:
+- 400 Bad Request: Invalid input format
+- 401 Unauthorized: Not authenticated
+- 403 Forbidden: Cannot generate feed for other user
+
+================================================================================
+MUTATION: generateRecommendations
+================================================================================
+
+Input:
+- userId: ID! (required)
+
+Validation Rules:
+1. userId:
+   - Must be a valid UUID or ID format
+   - Cannot be null or empty
+   - Must match authenticated user's ID (or user must have admin permissions)
+
+Business Rules:
+- User can only generate their own recommendations (unless admin)
+- Recommendation generation is asynchronous
+- Uses machine learning algorithms (if available)
+- Recommendations are cached after generation
+- Returns success status
+
+Error Responses:
+- 400 Bad Request: Invalid userId format
+- 401 Unauthorized: Not authenticated
+- 403 Forbidden: Cannot generate recommendations for other user
+
+================================================================================
+COMMON VALIDATION PATTERNS
+================================================================================
+
+1. Search Query Validation:
+   - Sanitize search terms
+   - Remove special characters that could cause issues
+   - Normalize whitespace
+   - Limit query length to prevent DoS
+
+2. Price Range Validation:
+   - Ensure minPrice <= maxPrice
+   - Validate price format (2 decimal places)
+   - Check price bounds (0.01 to 999999.99)
+
+3. Rating Validation:
+   - Ensure rating is between 0.0 and 5.0
+   - Validate decimal precision (1 decimal place)
+
+4. Pagination:
+   - limit: Must be between 1 and 100, default 20
+   - nextToken: Must be valid if provided
+   - Return nextToken for pagination continuation
+
+5. Authentication & Authorization:
+   - All queries require valid authentication token
+   - Users can only access their own personalized data
+   - Admins can access all data
+
+6. Rate Limiting:
+   - Search: 100 per hour per user
+   - Get feed: 200 per hour per user
+   - Get recommendations: 50 per hour per user
+   - Generate operations: 10 per hour per user
+
+================================================================================
+SEARCH INDEXING RULES
+================================================================================
+
+1. Indexed Fields:
+   - Product title
+   - Product description
+   - Maker name
+   - Category name
+   - Materials
+   - Tags (if available)
+
+2. Ranking Factors:
+   - Relevance to search query
+   - Product rating
+   - Number of orders
+   - Number of saves
+   - Product recency
+   - Maker verification status
+
+3. Index Updates:
+   - Automatic on product publish
+   - Automatic on product update
+   - Manual via updateSearchIndex mutation
+   - Periodic full re-index (scheduled)
+
+================================================================================
+FEED GENERATION RULES
+================================================================================
+
+1. Personalized Feed:
+   - Based on user's saved items
+   - Based on user's order history
+   - Based on user's followed makers
+   - Based on user's preferences
+
+2. Trending Feed:
+   - Based on recent orders
+   - Based on recent saves
+   - Based on view counts
+   - Time-weighted algorithm
+
+3. New Arrivals Feed:
+   - Recently published products
+   - Sorted by publishedAt descending
+   - Limited to last 30 days
+
+4. Followed Makers Feed:
+   - Products from makers user follows
+   - Sorted by publishedAt descending
+   - Limited to last 90 days
+
+================================================================================
+CROSS-DOMAIN VALIDATION
+================================================================================
+
+1. Product Validation:
+   - Validate productId exists
+   - Check product is ACTIVE
+   - Verify product is accessible
+
+2. User Validation:
+   - Validate userId exists
+   - Check user account is active
+   - Verify user has necessary permissions
+
+3. Category Validation:
+   - Validate categoryId exists
+   - Check category is active
+
+================================================================================
+ERROR RESPONSE FORMAT
+================================================================================
+
+All validation errors should return structured error responses:
+
+{
+  "errors": [
+    {
+      "message": "Validation failed",
+      "extensions": {
+        "code": "VALIDATION_ERROR",
+        "field": "maxPrice",
+        "reason": "maxPrice must be greater than or equal to minPrice"
+      }
+    }
+  ]
+}
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

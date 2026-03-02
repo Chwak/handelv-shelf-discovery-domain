@@ -1,0 +1,250 @@
+# Discovery Domain - Data Layer Design
+
+**Purpose:** Search indexes, discovery feeds, ranking logic, and recommendations.
+
+**Database:** `discovery_db`
+
+**CDK Stack:** `discovery-stack`
+
+**Note:** This domain is read-heavy and eventually consistent. Uses OpenSearch/Elasticsearch for full-text search.
+
+---
+
+## Tables
+
+### `search_documents`
+
+**Partition Key:** `productId` (String)
+**Sort Key:** None
+
+**Attributes:**
+* `product_id` (String, PK)
+* `title` (String) - For full-text search
+* `description` (String) - For full-text search
+* `category_id` (String)
+* `maker_name` (String) - For search by maker name
+* `skills` (List of Strings) - Maker skills for filtering
+* `tags` (List of Strings) - User-defined tags
+* `price` (Number)
+* `rating` (Number) - For ranking
+* `view_count` (Number) - For trending
+* `save_count` (Number) - For popularity
+* `order_count` (Number) - For bestsellers
+* `last_updated` (String, ISO 8601)
+
+**GSI:**
+* `GSI1`: `categoryId` (PK), `rating` (SK) - Category rankings
+  * **Use Case:** "Top Rated" in category
+* `GSI2`: `categoryId` (PK), `viewCount` (SK) - Trending by category
+  * **Use Case:** "Trending Now" in category
+
+**TTL:** None
+
+**Note:** This table is a denormalized cache. Source of truth is Product domain. Updated via events.
+
+---
+
+### `curated_collections`
+
+**Partition Key:** `collectionId` (String, UUID)
+**Sort Key:** None
+
+**Attributes:**
+* `id` (String, PK, UUID)
+* `title` (String) - "The Artisan's Journey: From Clay to Creation"
+* `description` (String) - Editorial description
+* `category` (String) - "Ceramics", "Gift Guide", "Sustainability"
+* `image_url` (String) - Featured image
+* `read_time` (String) - "5 min read"
+* `featured` (Boolean) - Show on homepage
+* `published_at` (String, ISO 8601)
+* `created_at` (String, ISO 8601)
+
+**GSI:**
+* `GSI1`: `featured` (PK), `publishedAt` (SK) - Find featured collections
+  * **Use Case:** Homepage featured editorial content
+
+**TTL:** None
+
+---
+
+### `collection_products`
+
+**Partition Key:** `collectionId` (String)
+**Sort Key:** `productId` (String)
+
+**Attributes:**
+* `collection_id` (String, PK)
+* `product_id` (String, SK)
+* `position` (Number) - Order in collection
+* `added_at` (String, ISO 8601)
+
+**GSI:**
+* `GSI1`: `productId` (PK) - Find collections containing a product
+  * **Use Case:** Show which editorial collections feature a product
+
+**TTL:** None
+
+---
+
+## OpenSearch Index
+
+### `products_index`
+
+**Document Structure:**
+```json
+{
+  "product_id": "uuid",
+  "title": "text (analyzed)",
+  "description": "text (analyzed)",
+  "category_id": "keyword",
+  "maker_name": "text (analyzed)",
+  "skills": ["keyword"],
+  "tags": ["keyword"],
+  "price": "float",
+  "rating": "float",
+  "view_count": "integer",
+  "save_count": "integer",
+  "order_count": "integer",
+  "status": "keyword",
+  "product_type": "keyword",
+  "material_sources": ["keyword"],
+  "created_at": "date",
+  "published_at": "date"
+}
+```
+
+**Use Cases:**
+* Full-text search across title, description, maker name
+* Filter by category, price range, rating
+* Filter by material sources (upcycled, locally_sourced)
+* Sort by relevance, price, rating, newest
+
+---
+
+## Query Patterns
+
+### Full-Text Search
+**Service:** OpenSearch
+**Index:** `products_index`
+**Use Case:** User search query ("ceramic bowls")
+
+### Get Trending Products
+**Table:** `search_documents`
+**Operation:** Query on GSI2
+**Key:** `category_id`, sort by `view_count` DESC
+**Use Case:** "Trending Now" section
+
+### Get Top Rated Products
+**Table:** `search_documents`
+**Operation:** Query on GSI1
+**Key:** `category_id`, sort by `rating` DESC
+**Use Case:** "Top Rated" section
+
+### Get Featured Collections
+**Table:** `curated_collections`
+**Operation:** Query on GSI1
+**Key:** `featured = true`
+**Use Case:** Homepage editorial section
+
+### Get Collection Products
+**Table:** `collection_products`
+**Operation:** Query
+**Key:** `collection_id`, sort by `position`
+**Use Case:** Editorial collection detail page
+
+---
+
+## Events Consumed
+
+This domain consumes events from other domains:
+
+* `ProductPublished` (from Product Domain)
+  * **Action:** Create/update document in `search_documents` and OpenSearch index
+
+* `ProductUpdated` (from Product Domain)
+  * **Action:** Update document in `search_documents` and OpenSearch index
+
+* `ProductSoldOut` (from Product Domain)
+  * **Action:** Remove from search results (or mark as unavailable)
+
+* `ItemSaved` (from Collector Domain)
+  * **Action:** Increment `save_count` in `search_documents`
+
+* `OrderCreated` (from Order Domain)
+  * **Action:** Increment `order_count` in `search_documents`
+
+* `ReviewSubmitted` (from Review Domain)
+  * **Action:** Recalculate `rating` in `search_documents`
+
+* `ProductViewed` (from Analytics/Tracking)
+  * **Action:** Increment `view_count` in `search_documents`
+
+---
+
+## Events Published
+
+This domain does not publish events (read-only domain).
+
+---
+
+## Design Considerations
+
+1. **Eventually Consistent:** Search documents are updated asynchronously via events. There may be a slight delay between product creation and search availability.
+
+2. **Denormalization:** `search_documents` is a denormalized cache. Source of truth is Product domain. This allows fast reads without joins.
+
+3. **OpenSearch Integration:** Full-text search requires OpenSearch. DynamoDB is used for structured queries (trending, top rated).
+
+4. **Ranking Signals:** Multiple signals used for ranking:
+   - `rating` - Quality signal
+   - `view_count` - Popularity signal
+   - `save_count` - Interest signal
+   - `order_count` - Conversion signal
+
+5. **Editorial Collections:** Curated by platform team. Different from collector collections (in Collector domain).
+
+6. **Material Source Filtering:** Material sources indexed for eco-conscious filtering.
+
+---
+
+## Access Patterns
+
+### High Frequency
+* Full-text search (every search query)
+* Get trending products (homepage)
+* Get top rated products (homepage)
+
+### Medium Frequency
+* Get featured collections (homepage)
+* Get collection products (collection detail page)
+* Filter by material source (search filters)
+
+### Low Frequency
+* Update search documents (via events, background process)
+
+---
+
+## Data Consistency
+
+* **Eventually Consistent:** All updates via events. Typical delay: 1-5 seconds.
+
+---
+
+## Next Steps
+
+1. **Create CDK stack** with DynamoDB tables
+2. **Set up OpenSearch domain** for full-text search
+3. **Set up EventBridge rules** for consumed events
+4. **Create Lambda functions** for:
+   * Search document indexing (listens to Product events)
+   * OpenSearch document sync
+   * Ranking calculation
+   * Collection management
+5. **Build API Gateway** endpoints:
+   * `GET /search?q={query}&category={category_id}&min_price={price}&max_price={price}`
+   * `GET /discovery/trending?category_id={category_id}`
+   * `GET /discovery/top-rated?category_id={category_id}`
+   * `GET /collections/featured`
+   * `GET /collections/{collection_id}`
+   * `GET /collections/{collection_id}/products`

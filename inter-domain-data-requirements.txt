@@ -1,0 +1,63 @@
+# Discovery Domain - Inter-Domain Data Requirements
+
+## Overview
+All events consumed for search indexing.
+
+**Domain:** Discovery Domain  
+**Last Updated:** 2026-01-31
+
+---
+
+## 1. EVENTS CONSUMED
+
+Discovery Domain consumes events from multiple domains to index search:
+
+### From Product Domain
+- `ProductPublished` → Index new product
+- `ProductUpdated` → Update search index
+- `ProductSoldOut` → Mark unavailable
+
+### From Maker Domain
+- `MakerProfileCreated` → Index new maker
+- `MakerProfileUpdated` → Update maker index
+- `MakerFullyVerified` → Update verification status
+
+### From Collector Domain
+- `ItemSaved` → Increment save count (popularity)
+- `ItemUnsaved` → Decrement save count
+
+### From Order Domain
+- `OrderCreated` → Increment order count (bestseller tracking)
+
+### From Review Domain
+- `ReviewApproved` → Update rating in search index
+- `RatingUpdated` → Update average rating
+
+### From Verification Domain
+- `MakerFullyVerified` → Update maker verification badge
+
+---
+
+## 2. EVENTS EMITTED
+
+Discovery Domain does NOT emit events (it is a leaf domain).
+
+---
+
+## DEPENDENCY MAP
+
+```
+Discovery Domain:
+├── Consumes From:
+│   ├── Product Domain → Product events
+│   ├── Maker Domain → Maker events
+│   ├── Collector Domain → Engagement events
+│   ├── Order Domain → Order events
+│   ├── Review Domain → Rating events
+│   └── Verification Domain → Verification events
+└── Provides To: NONE (leaf domain)
+```
+
+---
+
+**Note:** Discovery maintains denormalized search indexes updated via events.
