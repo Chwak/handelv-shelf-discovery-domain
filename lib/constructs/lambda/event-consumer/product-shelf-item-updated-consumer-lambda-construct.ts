@@ -63,7 +63,6 @@ export class ProductShelfItemUpdatedConsumerLambdaConstruct extends Construct {
         OUTBOX_TABLE_NAME: outboxTable.tableName,
         EVENT_BUS_NAME: eventBus.eventBusName,
       },
-      reservedConcurrentExecutions: 100,
     });
 
     // Create search index table

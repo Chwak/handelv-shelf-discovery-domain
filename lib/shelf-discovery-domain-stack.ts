@@ -181,6 +181,19 @@ export class ShelfDiscoveryDomainStack extends cdk.Stack {
       removalPolicy,
     });
 
+    // Export DynamoDB table names to SSM for other domains to import
+    new ssm.StringParameter(this, "ShelfItemsTableNameParameter", {
+      parameterName: `/${props.environment}/shelf-discovery-domain/dynamodb/shelf-items-table-name`,
+      stringValue: discoveryTables.shelfItemsTable.tableName,
+      description: "Shelf items table name from shelf-discovery-domain",
+    });
+
+    new ssm.StringParameter(this, "SoldOutItemsTableNameParameter", {
+      parameterName: `/${props.environment}/shelf-discovery-domain/dynamodb/sold-out-items-table-name`,
+      stringValue: discoveryTables.soldOutItemsTable.tableName,
+      description: "Sold out items table name from shelf-discovery-domain",
+    });
+
     // Create AppSync resolvers
     const discoveryResolvers = new DiscoveryAppSyncResolversConstruct(this, "DiscoveryResolvers", {
       api: discoveryAppSync.api,

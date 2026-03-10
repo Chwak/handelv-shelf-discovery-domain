@@ -6,22 +6,13 @@ import { ShelfDiscoveryDomainPipelineStack } from "../lib/shelf-discovery-domain
 
 const app = new cdk.App();
 
-const environment = process.env.ENVIRONMENT ?? app.node.tryGetContext("environment") ?? "dev";
-const regionCode = process.env.REGION_CODE ?? app.node.tryGetContext("regionCode") ?? "use1";
-
-// Account mapping based on environment
-const accountMapping: Record<string, string> = {
-  dev: "741429964649",
-  mimic: "329177708881",
-  prod: "021657748325",
-};
-
-const targetAccount = accountMapping[environment] ?? process.env.CDK_DEFAULT_ACCOUNT;
+const environment = app.node.tryGetContext("environment") ?? "dev";
+const regionCode = app.node.tryGetContext("regionCode") ?? "use1";
 
 new ShelfDiscoveryDomainStack(app, `${environment}-${regionCode}-hand-made-shelf-discovery-domain-stack`, {
   env: {
-    account: targetAccount,
-    region: process.env.AWS_REGION ?? process.env.CDK_DEFAULT_REGION ?? "us-east-1",
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",
   },
   environment,
   regionCode,
