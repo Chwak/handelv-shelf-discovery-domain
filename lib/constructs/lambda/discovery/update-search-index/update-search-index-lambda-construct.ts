@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -14,7 +15,7 @@ export interface UpdateSearchIndexLambdaConstructProps {
 }
 
 export class UpdateSearchIndexLambdaConstruct extends Construct {
-  public readonly function: lambda.Function;
+  public readonly function: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: UpdateSearchIndexLambdaConstructProps) {
     super(scope, id);
@@ -57,17 +58,23 @@ export class UpdateSearchIndexLambdaConstruct extends Construct {
       removalPolicy: props.removalPolicy ?? cdk.RemovalPolicy.DESTROY,
     });
 
-    const lambdaCodePath = path.join(__dirname, '../../../../functions/lambda/discovery/update-search-index');
-    this.function = new lambda.Function(this, 'UpdateSearchIndexFunction', {
+    const lambdaCodePath = path.join(__dirname, '../../../../functions/lambda/discovery/update-search-index/update-search-index-lambda.ts');
+    this.function = new NodejsFunction(this, 'UpdateSearchIndexFunction', {
       functionName: `${props.environment}-${props.regionCode}-shelf-discovery-domain-update-search-index-lambda`,
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'update-search-index-lambda.handler',
-      code: lambda.Code.fromAsset(lambdaCodePath),
+      handler: 'handler',
+      entry: lambdaCodePath,
       role,
       timeout: cdk.Duration.seconds(60), // Longer timeout for indexing operations
       memorySize: 512, // More memory for processing
       tracing: lambda.Tracing.DISABLED,
       logGroup,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
       environment: {
         ENVIRONMENT: props.environment,
         REGION_CODE: props.regionCode,

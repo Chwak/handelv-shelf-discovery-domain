@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodeJs from 'aws-cdk-lib/aws-lambda-nodejs';
 
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -15,7 +16,7 @@ export interface SearchProductsLambdaConstructProps {
 }
 
 export class SearchProductsLambdaConstruct extends Construct {
-  public readonly function: lambda.Function;
+  public readonly function: lambda.IFunction;
 
   constructor(scope: Construct, id: string, props: SearchProductsLambdaConstructProps) {
     super(scope, id);
@@ -61,17 +62,26 @@ export class SearchProductsLambdaConstruct extends Construct {
       removalPolicy: props.removalPolicy ?? cdk.RemovalPolicy.DESTROY,
     });
 
-    const lambdaCodePath = path.join(__dirname, '../../../../functions/lambda/discovery/search-products');
-    this.function = new lambda.Function(this, 'SearchProductsFunction', {
+    const entryPath = path.join(
+      __dirname,
+      '../../../../functions/lambda/discovery/search-products/search-products-lambda.ts',
+    );
+    this.function = new lambdaNodeJs.NodejsFunction(this, 'SearchProductsFunction', {
       functionName: `${props.environment}-${props.regionCode}-shelf-discovery-domain-search-products-lambda`,
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'search-products-lambda.handler',
-      code: lambda.Code.fromAsset(lambdaCodePath),
+      entry: entryPath,
+      handler: 'handler',
       role,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       tracing: lambda.Tracing.DISABLED,
       logGroup,
+      bundling: {
+        externalModules: ['@aws-sdk/*'],
+        minify: false,
+        sourceMap: false,
+        target: 'node22',
+      },
       environment: {
         ENVIRONMENT: props.environment,
         REGION_CODE: props.regionCode,

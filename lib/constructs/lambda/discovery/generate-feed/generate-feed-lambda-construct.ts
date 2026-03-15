@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
@@ -12,7 +13,7 @@ export interface GenerateFeedLambdaConstructProps {
 }
 
 export class GenerateFeedLambdaConstruct extends Construct {
-  public readonly function: lambda.Function;
+  public readonly function: NodejsFunction;
 
   constructor(scope: Construct, id: string, props: GenerateFeedLambdaConstructProps) {
     super(scope, id);
@@ -46,17 +47,23 @@ export class GenerateFeedLambdaConstruct extends Construct {
       removalPolicy: props.removalPolicy ?? cdk.RemovalPolicy.DESTROY,
     });
 
-    const lambdaCodePath = path.join(__dirname, '../../../../functions/lambda/discovery/generate-feed');
-    this.function = new lambda.Function(this, 'GenerateFeedFunction', {
+    const lambdaCodePath = path.join(__dirname, '../../../../functions/lambda/discovery/generate-feed/generate-feed-lambda.ts');
+    this.function = new NodejsFunction(this, 'GenerateFeedFunction', {
       functionName: `${props.environment}-${props.regionCode}-shelf-discovery-domain-generate-feed-lambda`,
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'generate-feed-lambda.handler',
-      code: lambda.Code.fromAsset(lambdaCodePath),
+      handler: 'handler',
+      entry: lambdaCodePath,
       role,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       tracing: lambda.Tracing.DISABLED,
       logGroup,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
       environment: {
         ENVIRONMENT: props.environment,
         REGION_CODE: props.regionCode,
