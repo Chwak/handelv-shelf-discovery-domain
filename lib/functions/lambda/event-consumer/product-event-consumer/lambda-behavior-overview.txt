@@ -1,0 +1,28 @@
+HANDLER FILE: product-event-consumer-lambda.ts (shelf-discovery-domain)
+
+PRIMARY LOGIC
+Primary projector maintaining `shelf_items` (+ sold-out carve-outs per implementation further in file) from Product-domain events sourced through SQS. Requires `SHELF_ITEMS_TABLE_NAME`, `SOLD_OUT_ITEMS_TABLE_NAME`, `IDEMPOTENCY_TABLE_NAME`, `SCHEMA_REGISTRY_NAME`. Validates EventBridge payloads using **Glue + Ajv** cache before branching. Parses stringified/object `detail.payload` into `ProductShelfEvent`. Idempotency key prefers `eventId`, else traceparent fallback, else `productId:event` composite. Acquires Dynamo lock via conditional Put, routes `eventType` across `product.shelf.item.published.v1`, `.updated.v1`, `.removed.v1`; unknown types log-only but still clears idempotent completion state. Auxiliary handlers (not enumerated in excerpt) mutate denormalized attributes, optionally delete items, reconcile sold-out archival table referenced in preamble.
+
+PROS
+Schema enforcement reduces corrupt projection rows; aligns discovery table with authoritative product-domain stream.
+
+CONS
+Highest complexity footprint in folder—risk of divergence from `product-shelf-item-updated-consumer`; Glue dependency adds latency/cost.
+
+SECURITY
+Poison events could wipe listings if removal handler miswired—IAM + DLQ essential.
+
+PERFORMANCE
+Multiple Dynamo ops + potential schema fetch hot path—monitor concurrency.
+
+FURTHER IMPROVEMENTS
+Consolidate overlapping indexing responsibilities with sibling consumer; observability dashboards per branch.
+
+EXPOSES SENSITIVE_INFORMATION
+PARTIAL via logs + stored listing metadata.
+
+USER-FACING
+NO.
+
+EDGE CASES
+YES — duplicates short-circuit, parse failures escalate to DLQ via batch failures, Glue validation rejects malformed contracts.

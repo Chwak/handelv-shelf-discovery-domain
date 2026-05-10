@@ -1,0 +1,30 @@
+HANDLER: generate-recommendations-lambda.ts
+
+PRIMARY LOGIC
+Authenticated userId must match caller. ScanCommand SEARCH_DOCUMENTS_TABLE with Limit 100 (no filter — samples arbitrary slice). Scores each item as rating*2 + min(viewCount/100,10), sorts descending, logs and returns true after computing top 20 in memory. Does not write recommendations anywhere or return them to the client.
+
+PROS
+- Demonstrates simple scoring prototype.
+
+CONS
+- Arbitrary Scan is non-deterministic without consistent segment or full table read.
+- Computes recommendations but discards output (returns boolean true only).
+- O(table) sample not representative at scale.
+
+SECURITY
+Self-scoped auth; scan could leak aggregate statistics only through side channels if errors logged verbosely (currently minimal).
+
+PERFORMANCE
+Dynamo Scan cost every call; capped at 100 items but still expensive vs indexed approach.
+
+FURTHER IMPROVEMENTS
+Replace Scan with user-specific query, persist results, return list to client or enqueue batch job.
+
+EXPOSES SENSITIVE INFORMATION
+NO — no recommendation payload in response.
+
+USER-FACING
+YES via AppSync but misleading: boolean true implies work users cannot see.
+
+EDGE CASES
+PARTIAL — missing table env throws; empty scan yields true with zero candidates logged.

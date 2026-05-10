@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient, PutCommand, UpdateCommand, DeleteCommand, Query
 import { GlueClient, GetSchemaVersionCommand } from '@aws-sdk/client-glue';
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
-import { initTelemetryLogger } from '../../../utils/telemetry-logger';
+import { initTelemetryLogger } from '../../../../utils/telemetry-logger';
 
 const SHELF_ITEMS_TABLE_NAME = process.env.SHELF_ITEMS_TABLE_NAME || '';
 const SOLD_OUT_ITEMS_TABLE_NAME = process.env.SOLD_OUT_ITEMS_TABLE_NAME || '';
@@ -41,6 +41,7 @@ interface ProductShelfEvent {
   event?: string;
   productId?: string;
   makerUserId?: string;
+  makerName?: string;
   title?: string;
   description?: string;
   categoryId?: string;
@@ -48,6 +49,8 @@ interface ProductShelfEvent {
   quantityAvailable?: number;
   previousStatus?: string;
   updatedAt?: string;
+  imageUrls?: string[];
+  primaryImageUrl?: string;
 }
 
 /**
@@ -186,15 +189,34 @@ async function handleProductPublished(client: DynamoDBDocumentClient, payload: P
     throw new Error('Missing required fields: productId or makerUserId');
   }
 
+  const makerName = payload.makerName || '';
+  const title = payload.title || 'Untitled Product';
+  const description = payload.description || '';
+  const categoryId = payload.categoryId || 'uncategorized';
   const now = new Date().toISOString();
+
+  // Derive primary image URL from event (prefer explicit field, fall back to imageUrls[0])
+  const primaryImageUrl =
+    payload.primaryImageUrl ||
+    (Array.isArray(payload.imageUrls) && payload.imageUrls.length > 0 ? payload.imageUrls[0] : null) ||
+    null;
+
+  // Pre-compute lowercase searchableText for case-insensitive search in DynamoDB
+  const searchableText = [title, description, categoryId, makerName]
+    .join(' ')
+    .toLowerCase();
+
   const shelfItem = {
     shelfItemId,
     makerUserId: payload.makerUserId,
-    title: payload.title || 'Untitled Product',
-    description: payload.description || '',
-    categoryId: payload.categoryId || 'uncategorized',
+    makerName,
+    title,
+    description,
+    categoryId,
     basePrice: payload.basePrice || 0,
     quantityAvailable: payload.quantityAvailable || 0,
+    primaryImageUrl,
+    searchableText,
     
     // Search & ranking signals (initialized)
     rating: 0,
@@ -274,6 +296,28 @@ async function handleProductUpdated(client: DynamoDBDocumentClient, payload: Pro
     values[':soldOut'] = payload.quantityAvailable === 0;
   }
 
+  // Refresh primaryImageUrl when provided in the event
+  const updatedPrimaryImage =
+    payload.primaryImageUrl ||
+    (Array.isArray(payload.imageUrls) && payload.imageUrls.length > 0 ? payload.imageUrls[0] : undefined);
+  if (updatedPrimaryImage !== undefined) {
+    updates.push('primaryImageUrl = :img');
+    values[':img'] = updatedPrimaryImage;
+  }
+
+  if (payload.makerName !== undefined) {
+    updates.push('#makerName = :makerName');
+    names['#makerName'] = 'makerName';
+    values[':makerName'] = payload.makerName;
+  }
+
+  const needsSearchableTextRebuild = payload.title !== undefined || payload.description !== undefined || payload.categoryId !== undefined || payload.makerName !== undefined || updatedPrimaryImage !== undefined;
+  if (needsSearchableTextRebuild) {
+    updates.push('#searchableText = :searchableText');
+    names['#searchableText'] = 'searchableText';
+    // Value is set after fetching currentItem so we can use existing fields as fallback
+  }
+
   console.log('Updating shelf item:', { shelfItemId, updates });
 
   // ✅ CRITICAL FIX: Get current item to check version and prevent out-of-order updates
@@ -288,6 +332,16 @@ async function handleProductUpdated(client: DynamoDBDocumentClient, payload: Pro
   if (!currentItem) {
     console.warn('Shelf item not found - may have been removed', { shelfItemId });
     return; // Item doesn't exist, skip update
+  }
+
+  // Rebuild searchableText using currentItem as fallback for fields not in the payload
+  if (needsSearchableTextRebuild) {
+    values[':searchableText'] = [
+      payload.title ?? currentItem.title ?? '',
+      payload.description ?? currentItem.description ?? '',
+      payload.categoryId ?? currentItem.categoryId ?? '',
+      payload.makerName ?? currentItem.makerName ?? '',
+    ].join(' ').toLowerCase();
   }
   
   const currentVersion = currentItem.version || 0;

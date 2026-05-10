@@ -1,0 +1,31 @@
+HANDLER: get-feed-lambda.ts (CommonJS exports.handler)
+
+PRIMARY LOGIC
+Authenticated collectors. Parses limit (default 48, max 200) and base64url nextToken into Dynamo ExclusiveStartKey. resolveTraceparent computed but only used indirectly via initTelemetryLogger. Scan SHELF_ITEMS_TABLE with FilterExpression shelfStatus ACTIVE, paginated. Sorts page by createdAt/publishedAt descending, pins newest 5, Fisher–Yates shuffles the remainder for variety, slices to limit, maps to feed DTOs, returns nextToken from Scan’s LastEvaluatedKey. Comment notes stock not filtered at discovery time.
+
+PROS
+- Mixes recency with randomized tail for seller fairness.
+- Explicit ACTIVE filter avoids draft clutter if attribute maintained.
+
+CONS
+- Table Scan with filter is costly at scale; should be GSI or precomputed feed.
+- Random shuffle differs per page — pagination UX may feel jumpy.
+- traceparent built in resolveTraceparent but return path does not surface tracing metadata.
+
+SECURITY
+Authenticated-only; returns public listing fields (makerUserId visible in feed items).
+
+PERFORMANCE
+Scan + in-memory sort/shuffle per chunk; hotspot risk.
+
+FURTHER IMPROVEMENTS
+Replace Scan with ranked feed index; seed shuffle for reproducible pages.
+
+EXPOSES SENSITIVE INFORMATION
+PARTIAL — makerUserId and description text in feed cards; intended for marketplace browsing.
+
+USER-FACING
+YES — primary discovery feed for signed-in users.
+
+EDGE CASES
+PARTIAL — missing table env returns empty items not error; handles empty scan; token parse failure drops pagination key.

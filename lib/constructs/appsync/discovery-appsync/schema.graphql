@@ -47,9 +47,11 @@ type SearchResult {
   title: String!
   description: String!
   makerUserId: ID!
+  makerName: String
   categoryId: ID!
   basePrice: Float!
   rating: Float
+  primaryImageUrl: String
   viewCount: Int
   saveCount: Int
   orderCount: Int
@@ -75,6 +77,8 @@ type FeedItem {
   title: String!
   description: String!
   makerUserId: ID!
+  makerName: String
+  categoryId: ID
   basePrice: Float!
   rating: Float
   primaryImageUrl: String

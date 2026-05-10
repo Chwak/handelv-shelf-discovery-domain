@@ -48,7 +48,7 @@ export class StockHoldExpiredConsumerLambdaConstruct extends Construct {
     // Lambda function to process stock.hold.expired events
     this.function = new lambdaNodeJs.NodejsFunction(this, 'StockHoldExpiredConsumerFunction', {
       functionName: `${props.environment}-${props.regionCode}-shelf-discovery-stock-hold-expired-consumer`,
-      entry: `${__dirname}/../../../functions/lambda/event-consumer/stock-hold-expired-consumer-lambda.ts`,
+      entry: `${__dirname}/../../../functions/lambda/event-consumer/stock-hold-expired-consumer/stock-hold-expired-consumer-lambda.ts`,
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: Duration.seconds(60),

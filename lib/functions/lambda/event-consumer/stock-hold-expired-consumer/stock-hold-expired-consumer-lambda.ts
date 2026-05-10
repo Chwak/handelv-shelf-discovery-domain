@@ -1,7 +1,7 @@
 import { SQSHandler, SQSEvent } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand, PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { initTelemetryLogger } from '../../../utils/telemetry-logger';
+import { initTelemetryLogger } from '../../../../utils/telemetry-logger';
 
 const dynamodb = new DynamoDBClient({});
 const dynamodbDoc = DynamoDBDocumentClient.from(dynamodb);

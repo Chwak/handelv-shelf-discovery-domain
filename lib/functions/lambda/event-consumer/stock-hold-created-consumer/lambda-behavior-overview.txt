@@ -1,0 +1,28 @@
+HANDLER FILE: stock-hold-created-consumer-lambda.ts (shelf-discovery-domain)
+
+PRIMARY LOGIC
+Parses `StockHoldCreatedEvent` with `holdId`, `shelfItemId`, `quantity` (+ other fields unused for math). Idempotency keyed by **holdId**: `GetCommand` skip if seen. Performs conditional `UpdateCommand` on shelf item decrementing `quantityAvailable` requiring `quantityAvailable >= qty` to stop overselling; on `ConditionalCheckFailedException`, throws explicit insufficient-stock error to fail batch item. Writes idempotent completion row (`id: holdId`, `processed: true`, 7‑day TTL) best-effort. Returns `{ batchItemFailures }` wrapping outer failures only.
+
+PROS
+Core race protection vs naive counters; aligns with eventual stock confirmation increments.
+
+CONS
+If idempotency write fails after Dynamo decrement, retries could theoretically double decrement—risk window; warns but continues idempotency read failure path.
+
+SECURITY
+Poison messages could freeze inventory—authenticate producers.
+
+PERFORMANCE
+Hold-volume dependent; hotspots on viral SKUs.
+
+FURTHER IMPROVEMENTS
+Combine decrement + idempotency in TransactWrite; metric on conditional failures.
+
+EXPOSES SENSITIVE_INFORMATION
+LOW.
+
+USER-FACING
+NO — inventory consistency worker.
+
+EDGE CASES
+YES — conditional stock guard; duplicate hold skip logic.

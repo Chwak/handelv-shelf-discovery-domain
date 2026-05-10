@@ -48,7 +48,7 @@ export class OrderStockConfirmedConsumerLambdaConstruct extends Construct {
     // Lambda function to process order.stock.confirmed events
     this.function = new lambdaNodeJs.NodejsFunction(this, 'OrderStockConfirmedConsumerFunction', {
       functionName: `${props.environment}-${props.regionCode}-shelf-discovery-order-stock-confirmed-consumer`,
-      entry: `${__dirname}/../../../functions/lambda/event-consumer/order-stock-confirmed-consumer-lambda.ts`,
+      entry: `${__dirname}/../../../functions/lambda/event-consumer/order-stock-confirmed-consumer/order-stock-confirmed-consumer-lambda.ts`,
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: Duration.seconds(60),

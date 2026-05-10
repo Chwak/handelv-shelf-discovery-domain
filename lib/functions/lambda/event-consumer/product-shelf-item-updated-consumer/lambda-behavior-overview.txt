@@ -1,0 +1,28 @@
+HANDLER FILE: product-shelf-item-updated-consumer-lambda.ts
+
+PRIMARY LOGIC
+Module-scope throws at cold start if any of `SEARCH_INDEX_TABLE_NAME`, `IDEMPOTENCY_TABLE_NAME`, or `OUTBOX_TABLE_NAME` absent—deployment fails loud. Parses `product.shelf.item.updated.v1`-style payload from SQS/EventBridge wrapper. Idempotency check uses **`shelfItemId` as Dynamo key** retrieving `{indexed: boolean}` markers (distinct pattern vs other Lambdas using `id`). Builds `SearchIndexEntry`: always mints NEW `searchIndexId` UUID, merges title/description/category into lowercase `searchableText`, derives `price` numeric from `price` OR `basePrice` fallback zero, defaults currency `"USD"`, writes full denormalized doc into search index table, records idempotent flag, then emits `search.indexed.v1` pending outbox snapshot with synthesized nested UUID inside JSON payload (`searchIndexEventId`). TODO comment references external search engines none wired here.
+
+PROS
+Dedicated search indexer path separate from canonical shelf projection consumer; emits audit outbox trail.
+
+CONS
+New UUID per indexing event may accumulate duplicate conceptual rows keyed differently—verify GSIs/UI dedupe expectations; synchronous throw on missing env brittle for tests.
+
+SECURITY
+Indexing payload includes descriptive text—sanitize upstream to avoid HTML injection downstream.
+
+PERFORMANCE
+Multiple Dynamo writes sequentially per message (index + idempotency + outbox).
+
+FURTHER IMPROVEMENTS
+UPSERT strategy instead of new UUID churn; unify idempotency key schema with Glue-validated sibling consumer.
+
+EXPOSES SENSITIVE_INFORMATION
+PARTIAL — listing copy searchable.
+
+USER-FACING
+INDIRECT — powers discovery search freshness.
+
+EDGE CASES
+PARTIAL — idempotency `Get` swallows unknown errors returning null forcing re-processing; outer loop uses `batchItemFailures` per failing record unlike expired consumer.

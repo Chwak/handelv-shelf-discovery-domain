@@ -1,0 +1,30 @@
+HANDLER: outbox-publisher-lambda.ts
+
+PRIMARY LOGIC
+Simplified outbox publisher: only polls GSI-StatusCreatedAt for PENDING items with createdAt before the rolling threshold (no BatchGet path for stream/direct eventIds unlike most siblings). Validates each payload with Glue+Ajv, PutEvents in tens with TraceHeader, markSent or incrementRetry. incrementRetry uses a single UpdateExpression combining retry increment and conditional status flip via if(#r >= :max, :failed, #s) — different from two-update pattern elsewhere; worth verifying DynamoDB supports intended semantics for FAILED transition.
+
+PROS
+- Keeps discovery-domain events flowing when writers use the outbox table.
+
+CONS
+- Lacks stream/direct id fast path; may increase latency for freshly written rows until they age past threshold.
+- Retry/status update semantics in one expression are harder to audit than explicit two-step logic.
+
+SECURITY
+Internal; search index and product snapshot payloads may transit the bus.
+
+PERFORMANCE
+Single GSI query per invocation up to BATCH_SIZE; no BatchGet branch.
+
+FURTHER IMPROVEMENTS
+- Add stream trigger + eventId targeting like other domains for parity.
+- Reconcile retry logic with platform standard and add tests.
+
+EXPOSES SENSITIVE INFORMATION
+PARTIAL — discovery events may embed public catalog fields; still restrict downstream consumers.
+
+USER-FACING
+INDIRECT — worker only.
+
+EDGE CASES
+PARTIAL — no handling for Records-style stream payloads in this file; threshold-only polling may miss urgency guarantees.

@@ -48,7 +48,7 @@ export class StockHoldCreatedConsumerLambdaConstruct extends Construct {
     // Lambda function to process stock.hold.created events
     this.function = new lambdaNodeJs.NodejsFunction(this, 'StockHoldCreatedConsumerFunction', {
       functionName: `${props.environment}-${props.regionCode}-shelf-discovery-stock-hold-created-consumer`,
-      entry: `${__dirname}/../../../functions/lambda/event-consumer/stock-hold-created-consumer-lambda.ts`,
+      entry: `${__dirname}/../../../functions/lambda/event-consumer/stock-hold-created-consumer/stock-hold-created-consumer-lambda.ts`,
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: Duration.seconds(60),

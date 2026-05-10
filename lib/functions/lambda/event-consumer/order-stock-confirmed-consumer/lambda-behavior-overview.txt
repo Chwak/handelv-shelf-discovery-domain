@@ -1,0 +1,28 @@
+HANDLER FILE: order-stock-confirmed-consumer-lambda.ts (shelf-discovery-domain)
+
+PRIMARY LOGIC
+Mirrors commerce `OrderStockConfirmedEvent` schema (orderId, paymentId, holds with shelfItemId, quantity, makers, collectors, statuses embedded but only shelfItemId+quantity consumed here). Uses **orderId** as idempotency marker: tries `GetCommand`—if processed item exists, skips entire remainder of message. Else loops holds and issues `UpdateCommand` per shelf row: increments `quantitySold` by reserved quantity **without** re-decrementing `quantityAvailable`, matching comment “availability already lowered on hold create”. Writes idempotency `Put` with `expires_at` 7-day TTL keyed by orderId (`processed: true`). Returns `batchItemFailures` mapping for catastrophic record errors only.
+
+PROS
+Aligns public sold counters after payment confirms; telemetry init at entry.
+
+CONS
+Idempotency `Get` warns and proceeds on Dynamo read failure — could double-increment counters on storms; increments lack `ConditionExpression` against negative drift; ignores order-line diversity beyond quantity.
+
+SECURITY
+Assume queue integrity—fake events could inflate `quantitySold`; monitor anomaly detection.
+
+PERFORMANCE
+N sequential updates per purchase—potential hot keys on bestselling SKUs.
+
+FURTHER IMPROVEMENTS
+Transactional multi-hold writes; stronger idempotency (transactional Put before updates).
+
+EXPOSES SENSITIVE_INFORMATION
+PARTIAL via logs (`orderId`, counts).
+
+USER-FACING
+NO — search index staleness bounded by downstream pipelines.
+
+EDGE CASES
+PARTIAL — empty holds rejected; Dynamo read failure tolerated (risk); per-record catches mark batch failures only on outer failures.

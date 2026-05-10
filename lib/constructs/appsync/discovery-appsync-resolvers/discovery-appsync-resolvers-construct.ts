@@ -6,6 +6,7 @@ export interface DiscoveryAppSyncResolversConstructProps {
   api: appsync.IGraphqlApi;
   searchProductsLambda?: lambda.IFunction;
   interpretCollectorQueryLambda?: lambda.IFunction;
+  getFeedLambda?: lambda.IFunction;
   generateFeedLambda?: lambda.IFunction;
   generateRecommendationsLambda?: lambda.IFunction;
   getCuratedCollectionLambda?: lambda.IFunction;
@@ -39,6 +40,20 @@ export class DiscoveryAppSyncResolversConstruct extends Construct {
       interpretCollectorQueryDataSource.createResolver('InterpretCollectorQueryResolver', {
         typeName: 'Query',
         fieldName: 'interpretCollectorQuery',
+        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
+        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
+      });
+    }
+
+    if (props.getFeedLambda) {
+      const getFeedDataSource = props.api.addLambdaDataSource(
+        'GetFeedDataSource',
+        props.getFeedLambda
+      );
+
+      getFeedDataSource.createResolver('GetFeedResolver', {
+        typeName: 'Query',
+        fieldName: 'getFeed',
         requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
         responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
       });

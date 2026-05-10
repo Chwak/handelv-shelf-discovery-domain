@@ -1,0 +1,5 @@
+Shelf Discovery Domain (package: shelf-discovery-domain)
+
+See ../../../DOMAIN_LOCAL_TESTING.txt for platform-wide conventions: local test (all green) → deploy (success) → get API/outputs → live test.
+
+Add exact Lambda invoke JSON under this folder (e.g. http-api/, schedules/) and add suites under test/lambdas/*.test.ts.

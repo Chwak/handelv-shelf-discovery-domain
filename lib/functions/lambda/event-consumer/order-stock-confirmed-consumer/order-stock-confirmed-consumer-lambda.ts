@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import type { SQSEvent } from 'aws-lambda';
-import { initTelemetryLogger } from '../../../utils/telemetry-logger';
+import { initTelemetryLogger } from '../../../../utils/telemetry-logger';
 
 const SHELF_ITEMS_TABLE_NAME = process.env.SHELF_ITEMS_TABLE_NAME || '';
 const IDEMPOTENCY_TABLE_NAME = process.env.IDEMPOTENCY_TABLE_NAME || '';

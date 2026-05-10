@@ -9,6 +9,7 @@ import { OutboxTableConstruct } from "./constructs/dynamodb/outbox-table/outbox-
 import { SearchProductsLambdaConstruct } from "./constructs/lambda/discovery/search-products/search-products-lambda-construct";
 import { InterpretCollectorQueryLambdaConstruct } from "./constructs/lambda/discovery/interpret-collector-query/interpret-collector-query-lambda-construct";
 import { GenerateFeedLambdaConstruct } from "./constructs/lambda/discovery/generate-feed/generate-feed-lambda-construct";
+import { GetFeedLambdaConstruct } from "./constructs/lambda/discovery/get-feed/get-feed-lambda-construct";
 import { GenerateRecommendationsLambdaConstruct } from "./constructs/lambda/discovery/generate-recommendations/generate-recommendations-lambda-construct";
 import { GetCuratedCollectionLambdaConstruct } from "./constructs/lambda/discovery/get-curated-collection/get-curated-collection-lambda-construct";
 import { UpdateSearchIndexLambdaConstruct } from "./constructs/lambda/discovery/update-search-index/update-search-index-lambda-construct";
@@ -18,7 +19,7 @@ import { ProductShelfItemUpdatedConsumerLambdaConstruct } from "./constructs/lam
 import { StockHoldCreatedConsumerLambdaConstruct } from "./constructs/lambda/event-consumer/stock-hold-created-consumer-lambda-construct";
 import { StockHoldExpiredConsumerLambdaConstruct } from "./constructs/lambda/event-consumer/stock-hold-expired-consumer-lambda-construct";
 import { OrderStockConfirmedConsumerLambdaConstruct } from "./constructs/lambda/event-consumer/order-stock-confirmed-consumer-lambda-construct";
-import { RepublishLambdaConstruct } from "./constructs/lambda/republish/republish-lambda-construct";
+import { OutboxPublisherLambdaConstruct } from "./constructs/lambda/outbox-publisher/outbox-publisher-lambda-construct";
 import { importEventBusFromSharedInfra } from "./utils/eventbridge-helper";
 
 export class ShelfDiscoveryDomainStack extends cdk.Stack {
@@ -91,6 +92,13 @@ export class ShelfDiscoveryDomainStack extends cdk.Stack {
       removalPolicy,
     });
 
+    const getFeedLambda = new GetFeedLambdaConstruct(this, "GetFeedLambda", {
+      environment: props.environment,
+      regionCode: props.regionCode,
+      shelfItemsTable: discoveryTables.shelfItemsTable,
+      removalPolicy,
+    });
+
     const generateRecommendationsLambda = new GenerateRecommendationsLambdaConstruct(this, "GenerateRecommendationsLambda", {
       environment: props.environment,
       regionCode: props.regionCode,
@@ -106,8 +114,8 @@ export class ShelfDiscoveryDomainStack extends cdk.Stack {
       removalPolicy,
     });
 
-    // ========== REPUBLISH LAMBDA: Outbox event publisher ==========
-    new RepublishLambdaConstruct(this, "RepublishLambda", {
+    // ========== outbox publisher lambda: Outbox event publisher ==========
+    new OutboxPublisherLambdaConstruct(this, "OutboxPublisherLambda", {
       environment: props.environment,
       regionCode: props.regionCode,
       domainName: "shelf-discovery-domain",
@@ -199,6 +207,7 @@ export class ShelfDiscoveryDomainStack extends cdk.Stack {
       api: discoveryAppSync.api,
       searchProductsLambda: searchProductsLambda.function,
       interpretCollectorQueryLambda: interpretCollectorQueryLambda.function,
+      getFeedLambda: getFeedLambda.function,
       generateFeedLambda: generateFeedLambda.function,
       generateRecommendationsLambda: generateRecommendationsLambda.function,
       getCuratedCollectionLambda: getCuratedCollectionLambda.function,

@@ -60,7 +60,7 @@ export class ProductEventConsumerLambdaConstruct extends Construct {
       this,
       `${props.environment}-${props.regionCode}-ProductEventConsumer`,
       {
-        entry: __dirname + '/../../../functions/lambda/event-consumer/product-event-consumer-lambda.ts',
+        entry: __dirname + '/../../../functions/lambda/event-consumer/product-event-consumer/product-event-consumer-lambda.ts',
         handler: 'handler',
         runtime: lambda.Runtime.NODEJS_20_X,
         timeout: Duration.seconds(60),

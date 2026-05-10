@@ -1,0 +1,30 @@
+HANDLER: get-curated-collection-lambda.ts
+
+PRIMARY LOGIC
+Public read resolver (no auth helper in handler): validates collectionId, Get curated collection metadata, Query COLLECTION_PRODUCTS_TABLE by collectionId, sorts joined rows by order field, maps to a slim product summary list with title, basePrice, primaryImageUrl, returns wrapped object with collection title, description, imageUrl, featured flag, timestamps.
+
+PROS
+- Simple two-step read pattern for editorial collections.
+- Stable sort by explicit order attribute.
+
+CONS
+- No visibility check — assumes only published collections exist in table or AppSync blocks private IDs.
+- Large collections load all product rows in one query (no pagination).
+
+SECURITY
+Relies on GraphQL auth layer and table contents; if table mixes draft collections, resolver does not filter.
+
+PERFORMANCE
+One Get + one Query per request; may grow with collection size.
+
+FURTHER IMPROVEMENTS
+Add pagination for products; enforce publishedAt != null if schema supports drafts.
+
+EXPOSES SENSITIVE INFORMATION
+PARTIAL — exposes catalog listing fields intended for collectors; should not include maker PII beyond public maker-facing names if present in rows.
+
+USER-FACING
+YES — collector-facing curated shelf experience.
+
+EDGE CASES
+PARTIAL — not found throws; missing optional fields default to empty string/zero/null.

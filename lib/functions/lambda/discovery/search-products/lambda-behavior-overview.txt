@@ -1,0 +1,31 @@
+HANDLER: search-products-lambda.ts (CommonJS exports.handler)
+
+PRIMARY LOGIC
+Authenticated search over SHELF_ITEMS_TABLE. Builds normalized tokens, synonyms, and relevance scoring in memory. Chooses access path: Query GSI1-MakerPublished when makerUserId filter present, Query GSI3-CategoryPrice when categoryId set, else Scan with composed FilterExpression (ACTIVE status, optional contains() text clauses on searchableText/title/description/makerName, price/rating bounds, materials array existence). May refetch with relaxed text filter if zero hits. Applies materials intersection filter in memory, attaches _computedRelevanceScore, sorts by score then popularity, returns page with nextToken and totalCount (= page length, not global total). Outer catch logs and returns empty results.
+
+PROS
+- Rich relevance heuristics without OpenSearch.
+- Uses GSIs when filters allow to shrink read units vs pure scan.
+
+CONS
+- Contains-heavy filters still expensive; requestLimit can pull up to 500 items per hop.
+- totalCount is misleading (not global match count).
+- Catch-all empty response swallows errors from clients’ perspective.
+
+SECURITY
+Authenticated; results expose public listing fields.
+
+PERFORMANCE
+Can be Dynamo-heavy; synonym and edit-distance loops add CPU per candidate.
+
+FURTHER IMPROVEMENTS
+Introduce dedicated search index; return accurate counts or remove field; surface error distinction.
+
+EXPOSES SENSITIVE INFORMATION
+PARTIAL — descriptions and maker names in results; expected for marketplace.
+
+USER-FACING
+YES — core product search.
+
+EDGE CASES
+PARTIAL — maker vs category vs scan modes; relaxed second pass; materials post-filter can empty page after Dynamo fetch.

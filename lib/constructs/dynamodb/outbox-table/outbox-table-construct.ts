@@ -10,7 +10,7 @@ import { Construct } from "constructs";
  *
  * States:
  * - PENDING: Event written but not yet sent to EventBridge
- * - SENT: Event successfully delivered to EventBridge (marked by Republish Lambda)
+ * - SENT: Event successfully delivered to EventBridge (marked by Outbox Publisher Lambda)
  * - FAILED: Event failed after max retries (manual intervention required)
  */
 export interface OutboxTableConstructProps {

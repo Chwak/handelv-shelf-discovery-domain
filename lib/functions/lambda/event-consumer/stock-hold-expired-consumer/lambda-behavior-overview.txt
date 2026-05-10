@@ -1,0 +1,28 @@
+HANDLER FILE: stock-hold-expired-consumer-lambda.ts (shelf-discovery-domain)
+
+PRIMARY LOGIC
+`SQSHandler` returning **`Promise<void>`** (different from sibling consumers exposing batch failure maps). Parses each record expecting `detail` with `holdId`, `shelfItemId`, `quantity`. Uses idempotency key `expired-${holdId}` to skip replays via `GetCommand`. Runs unconditional `UpdateCommand` adding quantity back into `quantityAvailable` on shelf item (+ `updatedAt`). Records idempotent Put TTL 7 days. On any error mid-record, **`throw`** propagates causing SQS retry/DLQ for whole batch semantics (partial failure granularity absent).
+
+PROS
+Restores abandonment inventory for discovery availability; TTL comment ties to upstream 30‑minute hold expiry.
+
+CONS
+No `batchItemFailures` pattern—misconfiguration can poison entire invocation; unconditional increment could over-restore if duplicate events sneak past flaky idempotency checks.
+
+SECURITY
+Poison increments risk oversupply perception—authenticate event source.
+
+PERFORMANCE
+Light per message.
+
+FURTHER IMPROVEMENTS
+Align handler signature/partial-batch behavior with sibling Lambdas.
+
+EXPOSES SENSITIVE INFORMATION
+LOW beyond operational ids logged.
+
+USER-FACING
+NO.
+
+EDGE CASES
+PARTIAL — idempotency read warns + continues; unconditional update path dominates.

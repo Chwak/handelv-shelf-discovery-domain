@@ -25,7 +25,7 @@ function validateProductId(id: unknown): string | null {
 }
 
 export const handler = async (event: {
-  arguments?: { productId?: unknown; action?: unknown; document?: Record<string, unknown> };
+  arguments?: { shelfItemId?: unknown; productId?: unknown; action?: unknown; document?: Record<string, unknown> };
   headers?: Record<string, string>;
 }) => {
   initTelemetryLogger(event, { domain: "shelf-discovery-domain", service: "update-search-index" });
@@ -36,8 +36,8 @@ export const handler = async (event: {
   }
 
   const args = event.arguments ?? {};
-  const productId = validateProductId(args.productId);
-  if (!productId) throw new Error('Invalid input format');
+  const shelfItemId = validateProductId(args.shelfItemId ?? args.productId);
+  if (!shelfItemId) throw new Error('Invalid input format');
 
   const action = typeof args.action === 'string' ? args.action.trim().toLowerCase() : 'upsert';
   const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -46,7 +46,7 @@ export const handler = async (event: {
     await client.send(
       new DeleteCommand({
         TableName: SEARCH_DOCUMENTS_TABLE,
-        Key: { productId },
+        Key: { shelfItemId },
       })
     );
     return true;
@@ -55,9 +55,10 @@ export const handler = async (event: {
   const document = args.document && typeof args.document === 'object' ? args.document : {};
   const updatedAt = new Date().toISOString();
   const item = {
-    productId,
-    updatedAt,
     ...document,
+    shelfItemId,
+    productId: typeof document.productId === 'string' ? document.productId : shelfItemId,
+    updatedAt,
   };
   await client.send(
     new PutCommand({

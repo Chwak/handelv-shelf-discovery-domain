@@ -1,0 +1,31 @@
+HANDLER: generate-feed-lambda.ts
+
+PRIMARY LOGIC
+AppSync-style handler validates userId and feedType against a fixed uppercase set (PERSONALIZED, TRENDING, NEW_ARRIVALS, FOLLOWED_MAKERS). requireAuthenticatedUser must match userId. Logs start/end messages and returns boolean true. Comment states no DynamoDB is wired in the stack and feed persistence would be a separate pipeline — no side effects persist.
+
+PROS
+- Cheap stub for schema/AppSync wiring until feed generation exists.
+- Prevents cross-user invocation by matching sub to userId argument.
+
+CONS
+- Returns success without doing work — clients may assume feed materialized.
+- No job queue or idempotency token for future real implementation.
+
+SECURITY
+Authenticated users only; self-scoped. Comments in source note missing persistence in construct.
+
+PERFORMANCE
+Minimal CPU only.
+
+FURTHER IMPROVEMENTS
+- Back with Step Functions or SQS worker plus feed table when requirements firm.
+- Return job id instead of boolean if async.
+
+EXPOSES SENSITIVE INFORMATION
+NO — only logs userId and feedType at info level.
+
+USER-FACING
+YES — GraphQL mutation shape; currently a no-op success.
+
+EDGE CASES
+PARTIAL — rejects invalid id/type and forbidden cross-user; no partial failure modes.

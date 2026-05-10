@@ -49,7 +49,7 @@ export class ProductShelfItemUpdatedConsumerLambdaConstruct extends Construct {
       functionName: `${environment}-${regionCode}-discovery-product-shelf-updated-consumer`,
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: "handler",
-      entry: `${__dirname}/../../../functions/lambda/event-consumer/product-shelf-item-updated-consumer-lambda.ts`,
+      entry: `${__dirname}/../../../functions/lambda/event-consumer/product-shelf-item-updated-consumer/product-shelf-item-updated-consumer-lambda.ts`,
       timeout: cdk.Duration.seconds(60),
       memorySize: 512,
       bundling: {
