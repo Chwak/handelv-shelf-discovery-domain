@@ -1,21 +1,16 @@
+/**
+ * Transactional outbox DynamoDB table for this domain. Self-contained — schema matches PLATFORM_DESIGN_CONTRACTS.txt.
+ * Publisher Lambdas read `GSI-StatusCreatedAt` for PENDING rows.
+ */
+
 import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
 
-/**
- * Transactional Outbox Table (Atomic Outbox Pattern)
- *
- * Every domain maintains its own outbox table. When a business operation completes,
- * the event and the state change are written atomically in a single TransactWriteItems call.
- *
- * States:
- * - PENDING: Event written but not yet sent to EventBridge
- * - SENT: Event successfully delivered to EventBridge (marked by Outbox Publisher Lambda)
- * - FAILED: Event failed after max retries (manual intervention required)
- */
 export interface OutboxTableConstructProps {
   environment: string;
   regionCode: string;
+  /** e.g. "maker-domain", "order-domain" — becomes part of the physical table name */
   domainName: string;
   removalPolicy?: cdk.RemovalPolicy;
 }
@@ -39,6 +34,7 @@ export class OutboxTableConstruct extends Construct {
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.environment === "prod" },
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       timeToLiveAttribute: "expiresAt",
+      stream: dynamodb.StreamViewType.NEW_IMAGE,
     });
 
     this.table.addGlobalSecondaryIndex({

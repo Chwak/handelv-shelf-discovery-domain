@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import type { SQSEvent, SQSRecord } from "aws-lambda";
+import { resolveEventBridgeBusinessPayload } from "../../../../utils/resolve-eventbridge-business-payload";
 
 const dynamodb = new DynamoDBClient({});
 const dynamodbDoc = DynamoDBDocumentClient.from(dynamodb);
@@ -70,7 +71,7 @@ export async function handler(event: SQSEvent): Promise<{ batchItemFailures: Arr
 async function processRecord(record: SQSRecord): Promise<void> {
   // Parse SQS message body (EventBridge envelope)
   const body = JSON.parse(record.body);
-  const detail = body.detail as ProductShelfItemUpdatedEvent;
+  const detail = resolveEventBridgeBusinessPayload<ProductShelfItemUpdatedEvent>(body.detail);
 
   // Validate required fields
   if (!detail.shelfItemId || !detail.productId || !detail.makerId) {

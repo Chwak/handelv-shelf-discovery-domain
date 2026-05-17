@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import type { SQSEvent } from 'aws-lambda';
 import { initTelemetryLogger } from '../../../../utils/telemetry-logger';
+import { resolveEventBridgeBusinessPayload } from '../../../../utils/resolve-eventbridge-business-payload';
 
 const SHELF_ITEMS_TABLE_NAME = process.env.SHELF_ITEMS_TABLE_NAME || '';
 const IDEMPOTENCY_TABLE_NAME = process.env.IDEMPOTENCY_TABLE_NAME || '';
@@ -59,12 +60,13 @@ export const handler = async (event: SQSEvent): Promise<{
       }
 
 
-      const detail = eventBridgeEnvelope.detail as OrderStockConfirmedEvent;
-      if (!detail) {
+      if (!eventBridgeEnvelope.detail) {
         throw new Error('Missing detail in EventBridge envelope');
       }
 
-      const { orderId, paymentId, holds } = detail;
+      const { orderId, paymentId, holds } = resolveEventBridgeBusinessPayload<OrderStockConfirmedEvent>(
+        eventBridgeEnvelope.detail,
+      );
 
       // Validate required fields
       if (!orderId || !paymentId || !holds || holds.length === 0) {

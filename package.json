@@ -10,8 +10,13 @@
     "diff": "cdk diff",
     "synth": "cdk synth",
     "destroy": "cdk destroy",
-    "test": "ENVIRONMENT=test NODE_ENV=test bash -c 'set -e; find test -name \"*.test.ts\" | sort | while read -r f; do tsx --test \"$f\"; done'",
-    "test:local": "npm run test"
+    "audit:deps": "npm audit",
+    "audit:deps:runtime": "npm audit --omit=dev",
+    "audit:deps:ci": "npm audit --audit-level=moderate",
+    "test": "bash ../scripts/run-domain-test-files.sh",
+    "test:unit": "bash ../scripts/run-domain-test-files.sh units",
+    "test:integration": "bash ../scripts/run-domain-test-files.sh lambdas",
+    "test:matrix": "node ../scripts/domain-test-matrix.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",

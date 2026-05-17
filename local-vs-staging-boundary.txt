@@ -1,0 +1,11 @@
+shelf-discovery-domain — local automated tests vs staging / production
+
+Local (`npm test`, `npm run test:matrix`)
+  • Proves TypeScript + exercised handler branches under mocks where suites exist.
+  • Integration mocks should target **DynamoDBDocumentClient** + **@aws-sdk/lib-dynamodb** commands when handlers use the document client.
+  • Does **not** replace: AppSync field auth, resolver templates, Cognito claim wiring; Glue schema alignment, cross-account EventBridge, real quotas/IAM.
+
+Staging live — minimum
+  • Deploy dev stack → capture outputs / `latest-dev-apis.json`.
+  • Run manual or scripted checks documented in `test/live-checklist.txt` step 11.
+  • Outbox canary (if applicable): controlled PENDING row → publisher → subscriber (see domain events docs).

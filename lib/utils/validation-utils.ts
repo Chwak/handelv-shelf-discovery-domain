@@ -2,6 +2,11 @@
  * Utility functions for input validation
  */
 
+import {
+  requireAuthenticatedUser as requireAuthenticatedUserCore,
+  PLATFORM_DUAL_ROLE_DEFAULT_GRAPHQL,
+} from "./active-mode";
+
 export interface ValidationError {
   field: string;
   message: string;
@@ -143,10 +148,5 @@ export function validateOrThrow(errors: ValidationError[]): void {
 }
 
 export function requireAuthenticatedUser(event: { identity?: { sub?: string; claims?: { sub?: string } } }): string | null {
-  const identity = event?.identity;
-  if (!identity) return null;
-  if (typeof identity.sub === 'string' && identity.sub.trim()) return identity.sub.trim();
-  const claimSub = identity.claims?.sub;
-  if (typeof claimSub === 'string' && claimSub.trim()) return claimSub.trim();
-  return null;
+  return requireAuthenticatedUserCore(event, 'authenticated', PLATFORM_DUAL_ROLE_DEFAULT_GRAPHQL);
 }

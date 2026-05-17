@@ -1,33 +1,38 @@
 /**
- * EventBridge Helper Utility
- *
- * Provides helper functions for importing the shared EventBridge bus.
- * This ensures all domains use the same EventBridge bus without creating duplicates.
+ * Central EventBridge bus via SSM (owned by shared-infra). Self-contained in this CDK app — no cross-package CDK dependency.
+ * Keep SSM paths aligned with PLATFORM_DESIGN_CONTRACTS.txt when the platform contract changes.
  */
 
 import * as events from "aws-cdk-lib/aws-events";
 import * as ssm from "aws-cdk-lib/aws-ssm";
-import { Construct } from "constructs";
+import type { Construct } from "constructs";
 
-/**
- * Import EventBridge bus from Shared Infra via SSM
- *
- * IMPORTANT: This function IMPORTS the bus, it does NOT create it.
- * Only Shared Infra creates the EventBridge bus.
- */
-export function importEventBusFromSharedInfra(
-  scope: Construct,
-  environment: string
-): events.IEventBus {
+/** SSM parameter suffixes under `/${environment}/shared-infra/eventbridge/` */
+export const SHARED_INFRA_EVENT_BUS_NAME_PARAM = "event-bus-name";
+export const SHARED_INFRA_EVENT_BUS_ARN_PARAM = "event-bus-arn";
+
+export function sharedInfraEventBusNameParameterPath(environment: string): string {
+  return `/${environment}/shared-infra/eventbridge/${SHARED_INFRA_EVENT_BUS_NAME_PARAM}`;
+}
+
+export function sharedInfraEventBusArnParameterPath(environment: string): string {
+  return `/${environment}/shared-infra/eventbridge/${SHARED_INFRA_EVENT_BUS_ARN_PARAM}`;
+}
+
+export function importEventBusFromSharedInfra(scope: Construct, environment: string): events.IEventBus {
   const eventBusName = ssm.StringParameter.fromStringParameterName(
     scope,
     "ImportedEventBusName",
-    `/${environment}/shared-infra/eventbridge/event-bus-name`
+    sharedInfraEventBusNameParameterPath(environment),
   ).stringValue;
 
-  return events.EventBus.fromEventBusName(
+  return events.EventBus.fromEventBusName(scope, "ImportedEventBus", eventBusName);
+}
+
+export function getEventBusArnFromSharedInfra(scope: Construct, environment: string): string {
+  return ssm.StringParameter.fromStringParameterName(
     scope,
-    "ImportedEventBus",
-    eventBusName
-  );
+    "ImportedEventBusArn",
+    sharedInfraEventBusArnParameterPath(environment),
+  ).stringValue;
 }

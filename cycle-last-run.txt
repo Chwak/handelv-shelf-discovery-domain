@@ -1,0 +1,12 @@
+shelf-discovery-domain — lifecycle log (overwrite when repeating test/live-checklist.txt)
+
+Steps run (date / operator):
+  • npm run build:
+  • npm test / test:matrix:
+  • npm run audit:deps:
+  • npm run synth:
+  • deploy stack:
+  • live checks:
+
+Notes:
+  • Findings → test/shelf-discovery-domain-lambda-deep-test-report.txt and lib/functions/lambda/**/lambda-performance-security.txt

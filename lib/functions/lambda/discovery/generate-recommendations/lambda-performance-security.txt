@@ -1,0 +1,21 @@
+generate-recommendations-lambda — performance & security (keep in sync after code/IAM changes)
+
+Lifecycle: shelf-discovery-domain/test/live-checklist.txt steps 2–8; step 11 for live/staging.
+
+Surface context: AppSync
+
+Performance
+  • Review DynamoDB access patterns (Get vs Query vs Transact), batch sizes, and hot partition keys on high-cardinality ids.
+  • Outbox/Glue paths: bound batch size vs Lambda timeout; cache schema validators where the handler validates event detail.
+  • AppSync resolvers: avoid N+1 Lambda invokes; profile cold start and payload size (large GraphQL inputs).
+
+Security — potential flaws & mitigations
+  • IAM: CDK role grants must match actual SDK calls (least privilege); no table/bus ARNs wider than this handler needs.
+  • Authorization: AppSync/Cognito identity must align with handler checks (userId / role / maker vs collector); direct Lambda invoke is not production auth.
+  • Data exposure: return only fields intended for caller; map errors without leaking internal ids or stack traces to clients.
+  • Input validation: reject malformed GraphQL arguments / HTTP bodies before side effects; cap string lengths and array sizes.
+  • Logging: no secrets, tokens, or full PII in logs; use existing safe-error / telemetry patterns.
+
+Residual / watchlist
+  • Add or extend `test/lambdas/*-integration-local.test.ts` with fixtures under `test/fixtures/` (mock DynamoDBDocumentClient commands).
+  • Record staging/live gaps in `test/shelf-discovery-domain-lambda-deep-test-report.txt` after each checklist cycle.

@@ -1,0 +1,22 @@
+shelf-discovery-domain — Lambda change lifecycle (enhanced)
+
+  Platform cycle: ../../DOMAIN_LOCAL_TESTING.txt — Local → Deploy → Get APIs → Live.
+  Auth gate: complete auth-essentials local + live before prioritizing other domains unless waived.
+
+  Primary surfaces: AppSync
+
+  1. **Analyze** — Handler, env, Dynamo/Glue/EventBridge/AppSync/HTTP SDK usage.
+  2. **Static analysis** — `npm run audit:deps`; IAM in CDK vs handler (`lambda-performance-security.txt`).
+  3. **Document** — Update per-handler `lambda-performance-security.txt` and aggregate `test/shelf-discovery-domain-lambda-deep-test-report.txt`.
+  4. **Local simulation (optional)** — `test/fixtures/**` + console/SAM where parity holds.
+  5. **Unit tests** — `npm run test:unit` (`test/units/**`).
+  6. **Integration tests** — `npm run test:integration` (`test/lambdas/**`, mock `DynamoDBDocumentClient`).
+  7. **Improve** — Fixes from 2–6.
+  8. **Re-analyze** — Deps + IAM spot-check.
+  9. **Gate** — `npm run build && npm test` exit 0; `npm run synth`; `npm run test:matrix` for per-file counts.
+  10. **Deploy** — e.g. `npm run deploy -- <environment>-<region>-hand-made-shelf-discovery-domain-stack` (dev account only unless approved).
+  11. **Live** — Scripted GraphQL smoke with MAKER_GRAPHQL_URL-style URL + optional JWT from staging test user (add domain script when ready).
+      Findings narrative: `test/shelf-discovery-domain-lambda-deep-test-report.txt`. Run log: `test/cycle-last-run.txt`.
+      Local vs staging scope: `test/local-vs-staging-boundary.txt`.
+
+Agents: do not treat production-ready until 9–11 satisfied or explicitly waived.
