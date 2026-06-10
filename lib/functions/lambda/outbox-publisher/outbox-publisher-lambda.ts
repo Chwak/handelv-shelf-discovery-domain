@@ -1,10 +1,11 @@
 import { DynamoDBClient, QueryCommandInput } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { EventBridgeClient, PutEventsCommand, PutEventsRequestEntry } from "@aws-sdk/client-eventbridge";
-import { GlueClient, GetSchemaVersionCommand } from "@aws-sdk/client-glue";
+import { GlueClient } from "@aws-sdk/client-glue";
 import * as crypto from "crypto";
-import Ajv, { type ValidateFunction } from "ajv";
+import Ajv from "ajv";
 import addFormats from "ajv-formats";
+import { createGlueAjvEventDetailValidator } from "../../../outbox-publisher/glue-ajv-event-detail-validation";
 import { initTelemetryLogger } from "../../../utils/telemetry-logger";
 
 const dynamoDb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -21,7 +22,11 @@ const PENDING_THRESHOLD_MINUTES = parseInt(process.env.PENDING_THRESHOLD_MINUTES
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
-const schemaValidators = new Map<string, ValidateFunction>();
+const { validateEventDetail } = createGlueAjvEventDetailValidator({
+  glueClient,
+  schemaRegistryName: SCHEMA_REGISTRY_NAME,
+  ajv,
+});
 
 type TraceContext = {
   traceparent: string;
@@ -161,38 +166,5 @@ async function incrementRetry(eventId: string, code: string): Promise<void> {
     }));
   } catch (e) {
     console.error(`Retry increment failed for ${eventId}`, e);
-  }
-}
-
-async function getSchemaValidator(eventType: string): Promise<ValidateFunction> {
-  const cached = schemaValidators.get(eventType);
-  if (cached) return cached;
-
-  const schemaVersion = await glueClient.send(
-    new GetSchemaVersionCommand({
-      SchemaId: {
-        RegistryName: SCHEMA_REGISTRY_NAME,
-        SchemaName: eventType,
-      },
-      SchemaVersionNumber: { LatestVersion: true },
-    }),
-  );
-
-  if (!schemaVersion.SchemaDefinition) {
-    throw new Error(`No schema definition found for ${eventType}`);
-  }
-
-  const schema = JSON.parse(schemaVersion.SchemaDefinition);
-  const validate = ajv.compile(schema);
-  schemaValidators.set(eventType, validate);
-  return validate;
-}
-
-async function validateEventDetail(eventType: string, detail: unknown): Promise<void> {
-  const validate = await getSchemaValidator(eventType);
-  const valid = validate(detail);
-  if (!valid) {
-    const errors = validate.errors?.map((err: { instancePath?: string; message?: string }) => `${err.instancePath} ${err.message}`) || [];
-    throw new Error(`Schema validation failed for ${eventType}: ${errors.join('; ')}`);
   }
 }

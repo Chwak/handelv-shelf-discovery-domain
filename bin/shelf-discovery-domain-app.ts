@@ -3,50 +3,22 @@ import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
 import { ShelfDiscoveryDomainStack } from "../lib/shelf-discovery-domain-stack";
 import { ShelfDiscoveryDomainPipelineStack } from "../lib/shelf-discovery-domain-pipeline-stack";
+import { GITHUB_CONNECTION_ARN, initCdkAppDeploy } from "../lib/utils/deployment-env";
 
 const app = new cdk.App();
-
-const environment = process.env.ENVIRONMENT ?? app.node.tryGetContext("environment") ?? "dev";
-const regionCode = process.env.REGION_CODE ?? app.node.tryGetContext("regionCode") ?? "use1";
-
-// Account mapping based on environment
-const accountMapping: Record<string, string> = {
-  dev: "741429964649",
-  mimic: "329177708881",
-  prod: "021657748325",
-};
-
-const targetAccount = accountMapping[environment] ?? process.env.CDK_DEFAULT_ACCOUNT;
+const { environment, regionCode, account, region } = initCdkAppDeploy(app);
 
 new ShelfDiscoveryDomainStack(app, `${environment}-${regionCode}-hand-made-shelf-discovery-domain-stack`, {
-  env: {
-    account: targetAccount,
-    region: process.env.AWS_REGION ?? process.env.CDK_DEFAULT_REGION ?? "us-east-1",
-  },
+  env: { account, region },
   environment,
   regionCode,
 });
 
-// Domain-scoped pipeline infrastructure
-const managementAccountId = "567608120268";
-const devAccountId = "741429964649";
-const mimicProdAccountId = "329177708881";
-const prodAccountId = "021657748325";
-const githubConnectionArn = "arn:aws:codeconnections:us-east-1:567608120268:connection/6b01e09c-3e85-4c07-8ca7-e4313f3f1a45";
-
-new ShelfDiscoveryDomainPipelineStack(
-  app,
-  "ShelfDiscoveryDomainPipelineStack",
-  {
-    env: { account: managementAccountId, region: "us-east-1" },
-    domain: "shelf-discovery-domain",
-    managementAccountId,
-    devAccountId,
-    mimicProdAccountId,
-    prodAccountId,
-    githubConnectionArn,
-    description: "Domain-scoped pipeline for shelf-discovery-domain",
-  }
-);
+new ShelfDiscoveryDomainPipelineStack(app, "ShelfDiscoveryDomainPipelineStack", {
+  env: { account, region },
+  domain: "shelf-discovery-domain",
+  githubConnectionArn: GITHUB_CONNECTION_ARN,
+  description: "shelf-discovery-domain CDK (account 741429964649 only)",
+});
 
 app.synth();

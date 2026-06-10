@@ -1,45 +1,34 @@
 /**
- * Auth Essentials Domain Pipeline Stack
- * 
- * Self-contained pipeline infrastructure for the shelf-discovery-domain domain:
- * - CodePipeline that triggers from GitHub
- * - Artifact bucket (domain-scoped, not shared)
- 
- * - Deploy to dev, mimic, and prod with approval gates
+ * Template for domain pipeline stacks — copy pattern per domain (class names differ).
+ * All resources deploy to DEV_BACKEND_ACCOUNT_ID (741429964649).
  */
 
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as pipelines from 'aws-cdk-lib/pipelines';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import { DEV_BACKEND_ACCOUNT_ID } from './utils/deployment-env';
+import {
+  addDevOnlyDeployWave,
+  devOnlyCdkAssumeRoleStatement,
+} from './utils/domain-pipeline-dev-only';
 
-export interface ShelfDiscoveryDomainPipelineStackProps extends cdk.StackProps {
+export interface ShelfDiscoveryShelfDiscoveryDomainPipelineStackProps extends cdk.StackProps {
   domain: string;
-  managementAccountId: string;
-  devAccountId: string;
-  mimicProdAccountId: string;
-  prodAccountId: string;
   githubConnectionArn: string;
 }
 
 export class ShelfDiscoveryDomainPipelineStack extends cdk.Stack {
   public readonly artifactBucket: s3.Bucket;
 
-  constructor(scope: Construct, id: string, props: ShelfDiscoveryDomainPipelineStackProps) {
+  constructor(scope: Construct, id: string, props: ShelfDiscoveryShelfDiscoveryDomainPipelineStackProps) {
     super(scope, id, props);
 
-    const {
-      domain,
-      managementAccountId,
-      devAccountId,
-      mimicProdAccountId,
-      prodAccountId,
-      githubConnectionArn,
-    } = props;// Create domain-scoped artifact bucket
+    const { domain, githubConnectionArn } = props;
+
     this.artifactBucket = new s3.Bucket(this, 'ArtifactBucket', {
-      bucketName: `handelv-${domain}-artifacts-${managementAccountId}`,
+      bucketName: `handelv-${domain}-artifacts-${DEV_BACKEND_ACCOUNT_ID}`,
       versioned: true,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -54,7 +43,6 @@ export class ShelfDiscoveryDomainPipelineStack extends cdk.Stack {
       enforceSSL: true,
     });
 
-    // Create GitHub source
     const source = pipelines.CodePipelineSource.connection(
       `Chwak/handelv-${domain}`,
       'main',
@@ -64,7 +52,6 @@ export class ShelfDiscoveryDomainPipelineStack extends cdk.Stack {
       }
     );
 
-    // Create pipeline
     const pipeline = new pipelines.CodePipeline(this, 'Pipeline', {
       pipelineName: `Handelv-${this.pascalCase(domain)}`,
       artifactBucket: this.artifactBucket,
@@ -110,68 +97,17 @@ export class ShelfDiscoveryDomainPipelineStack extends cdk.Stack {
           },
         },
         timeout: cdk.Duration.minutes(30),
-        rolePolicy: [
-          new iam.PolicyStatement({
-            effect: iam.Effect.ALLOW,
-            actions: ['sts:AssumeRole'],
-            resources: [
-              `arn:aws:iam::${devAccountId}:role/cdk-hnb659fds-deploy-role-*`,
-              `arn:aws:iam::${devAccountId}:role/cdk-hnb659fds-file-publishing-role-*`,
-              `arn:aws:iam::${mimicProdAccountId}:role/cdk-hnb659fds-deploy-role-*`,
-              `arn:aws:iam::${mimicProdAccountId}:role/cdk-hnb659fds-file-publishing-role-*`,
-              `arn:aws:iam::${prodAccountId}:role/cdk-hnb659fds-deploy-role-*`,
-              `arn:aws:iam::${prodAccountId}:role/cdk-hnb659fds-file-publishing-role-*`,
-            ],
-          }),
-        ],
+        rolePolicy: [devOnlyCdkAssumeRoleStatement(DEV_BACKEND_ACCOUNT_ID)],
       },
     });
 
-    // Mimic production with approval
-    const mimicApproval = new pipelines.ManualApprovalStep(`ApproveMimic`, {
-      comment: `Approve mimic deployment for ${domain}`,
-    });
-
-    pipeline.addWave('DeployToMimic', {
-      pre: [mimicApproval],
-      post: [
-        new pipelines.CodeBuildStep(`Deploy${this.pascalCase(domain)}Mimic`, {
-          commands: [
-            `echo "=== Deploying ${domain} to mimic ==="`,
-            `export ENVIRONMENT=mimic AWS_REGION=us-east-1`,
-            'npm ci --no-audit --no-fund',
-            'npm run build',
-            'npx cdk deploy --require-approval never',
-            `echo "✓ ${domain} deployed to mimic"`,
-          ],
-        }),
-      ],
-    });
-
-    // Production with approval
-    const prodApproval = new pipelines.ManualApprovalStep(`ApproveProd`, {
-      comment: `Approve production deployment for ${domain}`,
-    });
-
-    pipeline.addWave('DeployToProd', {
-      pre: [prodApproval],
-      post: [
-        new pipelines.CodeBuildStep(`Deploy${this.pascalCase(domain)}Prod`, {
-          commands: [
-            `echo "=== Deploying ${domain} to production ==="`,
-            `export ENVIRONMENT=prod AWS_REGION=us-east-1`,
-            'npm ci --no-audit --no-fund',
-            'npm run build',
-            'npx cdk deploy --require-approval never',
-            `echo "✓ ${domain} deployed to production"`,
-          ],
-        }),
-      ],
+    addDevOnlyDeployWave(pipeline, {
+      domain,
+      pascalCaseDomain: this.pascalCase(domain),
     });
 
     pipeline.buildPipeline();
 
-    // Outputs
     new cdk.CfnOutput(this, 'PipelineName', {
       value: pipeline.pipeline.pipelineName,
       exportName: `${domain}-pipeline-name`,
@@ -188,6 +124,11 @@ export class ShelfDiscoveryDomainPipelineStack extends cdk.Stack {
       value: this.artifactBucket.bucketName,
       exportName: `${domain}-artifact-bucket`,
       description: `Artifact bucket for ${domain}`,
+    });
+
+    new cdk.CfnOutput(this, 'DeployAccountId', {
+      value: DEV_BACKEND_ACCOUNT_ID,
+      description: 'Hardcoded dev account for all pipeline deploys',
     });
   }
 
