@@ -54,11 +54,17 @@ export function isAuthorizedForMode(
     const sub = claims?.sub;
     return typeof sub === "string" && sub.trim().length > 0;
   }
-  const effective = resolveEffectiveActiveMode(claims, whenBothEnabledAmbiguous);
+  // Capability-based authorization — gate on ENTITLEMENT, not the mutable
+  // `active_mode` UI state. An entitled user may call an experience's APIs
+  // regardless of which experience is currently "active" in the UI.
+  // See EXPERIENCE_AUTH_REDESIGN.md.
+  void whenBothEnabledAmbiguous; // retained for signature back-compat
+  const makerEnabled = isEnabled(claims?.maker_enabled);
+  const collectorEnabled = isEnabled(claims?.collector_enabled);
   if (required === "both") {
-    return effective !== null;
+    return makerEnabled || collectorEnabled;
   }
-  return effective === required;
+  return required === "maker" ? makerEnabled : collectorEnabled;
 }
 
 export function getAuthenticatedSub(event: {
