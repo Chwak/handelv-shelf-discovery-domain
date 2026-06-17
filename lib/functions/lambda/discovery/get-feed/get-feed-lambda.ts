@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 'use strict';
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 
 const TABLE_NAME = process.env.SHELF_ITEMS_TABLE_NAME;
 const DEFAULT_LIMIT = 48;
@@ -75,18 +75,25 @@ exports.handler = async (event: { arguments?: Record<string, unknown>; headers?:
 
   const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
-  // Scan all ACTIVE shelf items — stock availability is enforced at checkout,
-  // not at discovery time (sold-out items should still be discoverable)
+  // Query the GSI4-NewArrivals index (partition shelfStatus=ACTIVE, sort
+  // publishedAt) newest-first and paginated, instead of scanning the whole table.
+  // Read cost/latency stay flat as the catalog grows (only one page is read),
+  // versus the Scan which read every item on every call. Requires ACTIVE items
+  // to carry `publishedAt` (the on-shelf write path sets it). Stock availability
+  // is enforced at checkout, so sold-out items remain discoverable.
   const res = await client.send(
-    new ScanCommand({
+    new QueryCommand({
       TableName: TABLE_NAME,
-      FilterExpression: '#shelfStatus = :active',
+      IndexName: 'GSI4-NewArrivals',
+      KeyConditionExpression: '#shelfStatus = :active',
       ExpressionAttributeNames: {
         '#shelfStatus': 'shelfStatus',
       },
       ExpressionAttributeValues: {
         ':active': 'ACTIVE',
       },
+      ScanIndexForward: false, // newest publishedAt first
+      Limit: limit,
       ExclusiveStartKey: exclusiveStartKey,
     }),
   );
