@@ -216,7 +216,7 @@ function itemToSearchResult(item: Record<string, unknown>) {
 
 function buildFilterExpression(
   args: Record<string, unknown>,
-  opts: { skipCategoryFilter?: boolean; searchTerms?: string[]; normalizedQuery?: string; skipTextSearch?: boolean } = {},
+  opts: { skipCategoryFilter?: boolean; skipPriceFilter?: boolean; searchTerms?: string[]; normalizedQuery?: string; skipTextSearch?: boolean } = {},
 ): { expression: string | null; names: Record<string, string> | null; values: Record<string, unknown> | null } {
   const conditions: string[] = [];
   const names: Record<string, string> = {};
@@ -254,15 +254,21 @@ function buildFilterExpression(
     });
   }
 
-  // ── Price / rating filters ───────────────────────────────────────────────────
-  if (args.minPrice != null && Number(args.minPrice) >= 0) {
-    conditions.push('basePrice >= :minPrice');
-    values[':minPrice'] = Number(args.minPrice);
+  // ── Price filters ────────────────────────────────────────────────────────────
+  // Skipped on the category path, where basePrice is the GSI3 sort key and must
+  // go in the KeyConditionExpression — a FilterExpression on a key attribute is
+  // rejected by DynamoDB (was silently swallowed into empty results).
+  if (!opts.skipPriceFilter) {
+    if (args.minPrice != null && Number(args.minPrice) >= 0) {
+      conditions.push('basePrice >= :minPrice');
+      values[':minPrice'] = Number(args.minPrice);
+    }
+    if (args.maxPrice != null && Number(args.maxPrice) >= 0) {
+      conditions.push('basePrice <= :maxPrice');
+      values[':maxPrice'] = Number(args.maxPrice);
+    }
   }
-  if (args.maxPrice != null && Number(args.maxPrice) >= 0) {
-    conditions.push('basePrice <= :maxPrice');
-    values[':maxPrice'] = Number(args.maxPrice);
-  }
+  // ── Rating filter (non-key, always a FilterExpression) ───────────────────────
   if (args.minRating != null && Number(args.minRating) >= 0) {
     conditions.push('rating >= :minRating');
     values[':minRating'] = Number(args.minRating);
@@ -342,11 +348,28 @@ exports.handler = async (event: { arguments?: Record<string, unknown>; headers?:
     }
 
     if (args.categoryId && typeof args.categoryId === 'string' && args.categoryId.trim()) {
-      const qValues = { ':cat': args.categoryId.trim(), ...(appliedFilter.values || {}) };
+      // basePrice is GSI3's sort key — price bounds must be a KeyConditionExpression,
+      // not a FilterExpression (which DynamoDB rejects for key attributes). The
+      // applied filter is built with skipPriceFilter so the two never collide.
+      const qValues: Record<string, unknown> = { ':cat': args.categoryId.trim(), ...(appliedFilter.values || {}) };
+      let keyCondition = 'categoryId = :cat';
+      const hasMin = args.minPrice != null && Number(args.minPrice) >= 0;
+      const hasMax = args.maxPrice != null && Number(args.maxPrice) >= 0;
+      if (hasMin && hasMax) {
+        keyCondition += ' AND basePrice BETWEEN :minPrice AND :maxPrice';
+        qValues[':minPrice'] = Number(args.minPrice);
+        qValues[':maxPrice'] = Number(args.maxPrice);
+      } else if (hasMin) {
+        keyCondition += ' AND basePrice >= :minPrice';
+        qValues[':minPrice'] = Number(args.minPrice);
+      } else if (hasMax) {
+        keyCondition += ' AND basePrice <= :maxPrice';
+        qValues[':maxPrice'] = Number(args.maxPrice);
+      }
       const res = await client.send(new QueryCommand({
         TableName: TABLE_NAME,
         IndexName: GSI_CATEGORY,
-        KeyConditionExpression: 'categoryId = :cat',
+        KeyConditionExpression: keyCondition,
         FilterExpression: appliedFilter.expression || undefined,
         ExpressionAttributeNames: appliedFilter.names || undefined,
         ExpressionAttributeValues: qValues,
@@ -373,6 +396,7 @@ exports.handler = async (event: { arguments?: Record<string, unknown>; headers?:
       : (args.categoryId && typeof args.categoryId === 'string' && args.categoryId.trim())
         ? buildFilterExpression(args, {
             skipCategoryFilter: true,
+            skipPriceFilter: true,
             searchTerms: search.expandedTokens,
             normalizedQuery: search.normalizedQuery,
           })
@@ -391,6 +415,7 @@ exports.handler = async (event: { arguments?: Record<string, unknown>; headers?:
         : (args.categoryId && typeof args.categoryId === 'string' && args.categoryId.trim())
           ? buildFilterExpression(args, {
               skipCategoryFilter: true,
+              skipPriceFilter: true,
               skipTextSearch: true,
               searchTerms: search.expandedTokens,
               normalizedQuery: search.normalizedQuery,
