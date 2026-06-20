@@ -5,12 +5,8 @@ import { Construct } from 'constructs';
 export interface DiscoveryAppSyncResolversConstructProps {
   api: appsync.IGraphqlApi;
   searchProductsLambda?: lambda.IFunction;
-  interpretCollectorQueryLambda?: lambda.IFunction;
   getFeedLambda?: lambda.IFunction;
-  generateFeedLambda?: lambda.IFunction;
-  generateRecommendationsLambda?: lambda.IFunction;
   getCuratedCollectionLambda?: lambda.IFunction;
-  updateSearchIndexLambda?: lambda.IFunction;
 }
 
 export class DiscoveryAppSyncResolversConstruct extends Construct {
@@ -31,20 +27,6 @@ export class DiscoveryAppSyncResolversConstruct extends Construct {
       });
     }
 
-    if (props.interpretCollectorQueryLambda) {
-      const interpretCollectorQueryDataSource = props.api.addLambdaDataSource(
-        'InterpretCollectorQueryDataSource',
-        props.interpretCollectorQueryLambda
-      );
-
-      interpretCollectorQueryDataSource.createResolver('InterpretCollectorQueryResolver', {
-        typeName: 'Query',
-        fieldName: 'interpretCollectorQuery',
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-    }
-
     if (props.getFeedLambda) {
       const getFeedDataSource = props.api.addLambdaDataSource(
         'GetFeedDataSource',
@@ -54,34 +36,6 @@ export class DiscoveryAppSyncResolversConstruct extends Construct {
       getFeedDataSource.createResolver('GetFeedResolver', {
         typeName: 'Query',
         fieldName: 'getFeed',
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-    }
-
-    if (props.generateFeedLambda) {
-      const generateFeedDataSource = props.api.addLambdaDataSource(
-        'GenerateFeedDataSource',
-        props.generateFeedLambda
-      );
-
-      generateFeedDataSource.createResolver('GenerateFeedResolver', {
-        typeName: 'Mutation',
-        fieldName: 'generateFeed',
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-    }
-
-    if (props.generateRecommendationsLambda) {
-      const generateRecommendationsDataSource = props.api.addLambdaDataSource(
-        'GenerateRecommendationsDataSource',
-        props.generateRecommendationsLambda
-      );
-
-      generateRecommendationsDataSource.createResolver('GenerateRecommendationsResolver', {
-        typeName: 'Mutation',
-        fieldName: 'generateRecommendations',
         requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
         responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
       });
@@ -101,18 +55,5 @@ export class DiscoveryAppSyncResolversConstruct extends Construct {
       });
     }
 
-    if (props.updateSearchIndexLambda) {
-      const updateSearchIndexDataSource = props.api.addLambdaDataSource(
-        'UpdateSearchIndexDataSource',
-        props.updateSearchIndexLambda
-      );
-
-      updateSearchIndexDataSource.createResolver('UpdateSearchIndexResolver', {
-        typeName: 'Mutation',
-        fieldName: 'updateShelfItemIndex',
-        requestMappingTemplate: appsync.MappingTemplate.lambdaRequest(),
-        responseMappingTemplate: appsync.MappingTemplate.lambdaResult(),
-      });
-    }
   }
 }

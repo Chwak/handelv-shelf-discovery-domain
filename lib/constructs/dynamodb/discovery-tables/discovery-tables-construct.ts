@@ -9,7 +9,6 @@ export interface DiscoveryTablesConstructProps {
 }
 
 export class DiscoveryTablesConstruct extends Construct {
-  public readonly searchDocumentsTable: dynamodb.Table;
   public readonly shelfItemsTable: dynamodb.Table;
   public readonly soldOutItemsTable: dynamodb.Table;
   public readonly curatedCollectionsTable: dynamodb.Table;
@@ -19,45 +18,6 @@ export class DiscoveryTablesConstruct extends Construct {
     super(scope, id);
 
     const removalPolicy = props.removalPolicy ?? cdk.RemovalPolicy.DESTROY;
-
-    // Search Documents Table
-    this.searchDocumentsTable = new dynamodb.Table(this, 'SearchDocumentsTable', {
-      tableName: `${props.environment}-${props.regionCode}-shelf-discovery-domain-search-documents-table`,
-      partitionKey: {
-        name: 'productId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: removalPolicy,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.environment === 'prod' },
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
-    });
-
-    // GSI: search documents by category and rating
-    this.searchDocumentsTable.addGlobalSecondaryIndex({
-      indexName: 'GSI1-CategoryRating',
-      partitionKey: {
-        name: 'categoryId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'rating',
-        type: dynamodb.AttributeType.NUMBER,
-      },
-    });
-
-    // GSI: search documents by category and view count
-    this.searchDocumentsTable.addGlobalSecondaryIndex({
-      indexName: 'GSI2-CategoryViews',
-      partitionKey: {
-        name: 'categoryId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'viewCount',
-        type: dynamodb.AttributeType.NUMBER,
-      },
-    });
 
     // ==================== SHELF ITEMS TABLE ====================
     // This is the DENORMALIZED view of products that are on the SHELF
@@ -73,7 +33,6 @@ export class DiscoveryTablesConstruct extends Construct {
       removalPolicy: removalPolicy,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.environment === 'prod' },
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES, // For real-time search index updates
     });
 
     // GSI1: Browse shelf items by maker
@@ -86,20 +45,6 @@ export class DiscoveryTablesConstruct extends Construct {
       sortKey: {
         name: 'publishedAt',
         type: dynamodb.AttributeType.STRING,
-      },
-      projectionType: dynamodb.ProjectionType.ALL,
-    });
-
-    // GSI2: Browse shelf items by category with bestseller ranking
-    this.shelfItemsTable.addGlobalSecondaryIndex({
-      indexName: 'GSI2-CategoryBestseller',
-      partitionKey: {
-        name: 'categoryId',
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'orderCount',
-        type: dynamodb.AttributeType.NUMBER,
       },
       projectionType: dynamodb.ProjectionType.ALL,
     });

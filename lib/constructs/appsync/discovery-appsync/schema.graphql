@@ -10,24 +10,14 @@ type Query @aws_cognito_user_pools {
     limit: Int
     nextToken: String
   ): SearchResultsConnection
-  interpretCollectorQuery(naturalLanguageQuery: String!): InterpretedSearchFilters
   getFeed(
     userId: ID
     feedType: FeedType
     limit: Int
     nextToken: String
   ): FeedConnection
-  getRecommendations(userId: ID!, limit: Int, nextToken: String): RecommendationsConnection
   getCuratedCollection(collectionId: ID!): CuratedCollection
-  listCuratedCollections(limit: Int, nextToken: String): CuratedCollectionsConnection
 }
-
-type Mutation @aws_cognito_user_pools {
-  updateShelfItemIndex(shelfItemId: ID!): Boolean
-  generateFeed(userId: ID!, feedType: FeedType!): Boolean
-  generateRecommendations(userId: ID!): Boolean
-}
-
 
 enum FeedType {
   PERSONALIZED
@@ -58,15 +48,6 @@ type SearchResult {
   relevanceScore: Float
 }
 
-type InterpretedSearchFilters {
-  query: String
-  categoryId: ID
-  minPrice: Float
-  maxPrice: Float
-  materials: [String!]
-  summary: String
-}
-
 type FeedConnection {
   items: [FeedItem!]!
   nextToken: String
@@ -86,23 +67,6 @@ type FeedItem {
   createdAt: AWSDateTime!
 }
 
-type RecommendationsConnection {
-  items: [Recommendation!]!
-  nextToken: String
-}
-
-type Recommendation {
-  shelfItemId: ID!
-  title: String!
-  description: String!
-  makerUserId: ID!
-  basePrice: Float!
-  rating: Float
-  primaryImageUrl: String
-  recommendationScore: Float
-  reason: String
-}
-
 type CuratedCollection {
   collectionId: ID!
   title: String!
@@ -112,11 +76,6 @@ type CuratedCollection {
   shelfItems: [ShelfItemProduct!]!
   createdAt: AWSDateTime!
   publishedAt: AWSDateTime
-}
-
-type CuratedCollectionsConnection {
-  items: [CuratedCollection!]!
-  nextToken: String
 }
 
 type ShelfItemProduct {

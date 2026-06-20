@@ -7,12 +7,8 @@ import { DiscoveryAppSyncConstruct } from "./constructs/appsync/discovery-appsyn
 import { DiscoveryTablesConstruct } from "./constructs/dynamodb/discovery-tables/discovery-tables-construct";
 import { OutboxTableConstruct } from "./constructs/dynamodb/outbox-table/outbox-table-construct";
 import { SearchProductsLambdaConstruct } from "./constructs/lambda/discovery/search-products/search-products-lambda-construct";
-import { InterpretCollectorQueryLambdaConstruct } from "./constructs/lambda/discovery/interpret-collector-query/interpret-collector-query-lambda-construct";
-import { GenerateFeedLambdaConstruct } from "./constructs/lambda/discovery/generate-feed/generate-feed-lambda-construct";
 import { GetFeedLambdaConstruct } from "./constructs/lambda/discovery/get-feed/get-feed-lambda-construct";
-import { GenerateRecommendationsLambdaConstruct } from "./constructs/lambda/discovery/generate-recommendations/generate-recommendations-lambda-construct";
 import { GetCuratedCollectionLambdaConstruct } from "./constructs/lambda/discovery/get-curated-collection/get-curated-collection-lambda-construct";
-import { UpdateSearchIndexLambdaConstruct } from "./constructs/lambda/discovery/update-search-index/update-search-index-lambda-construct";
 import { DiscoveryAppSyncResolversConstruct } from "./constructs/appsync/discovery-appsync-resolvers/discovery-appsync-resolvers-construct";
 import { ProductEventConsumerLambdaConstruct } from "./constructs/lambda/event-consumer/product-event-consumer-lambda-construct";
 import { ProductShelfItemUpdatedConsumerLambdaConstruct } from "./constructs/lambda/event-consumer/product-shelf-item-updated-consumer-lambda-construct";
@@ -80,29 +76,10 @@ export class ShelfDiscoveryDomainStack extends cdk.Stack {
       removalPolicy,
     });
 
-    const interpretCollectorQueryLambda = new InterpretCollectorQueryLambdaConstruct(this, "InterpretCollectorQueryLambda", {
-      environment: props.environment,
-      regionCode: props.regionCode,
-      removalPolicy,
-    });
-
-    const generateFeedLambda = new GenerateFeedLambdaConstruct(this, "GenerateFeedLambda", {
-      environment: props.environment,
-      regionCode: props.regionCode,
-      removalPolicy,
-    });
-
     const getFeedLambda = new GetFeedLambdaConstruct(this, "GetFeedLambda", {
       environment: props.environment,
       regionCode: props.regionCode,
       shelfItemsTable: discoveryTables.shelfItemsTable,
-      removalPolicy,
-    });
-
-    const generateRecommendationsLambda = new GenerateRecommendationsLambdaConstruct(this, "GenerateRecommendationsLambda", {
-      environment: props.environment,
-      regionCode: props.regionCode,
-      searchDocumentsTable: discoveryTables.searchDocumentsTable,
       removalPolicy,
     });
 
@@ -182,13 +159,6 @@ export class ShelfDiscoveryDomainStack extends cdk.Stack {
       removalPolicy,
     });
 
-    const updateSearchIndexLambda = new UpdateSearchIndexLambdaConstruct(this, "UpdateSearchIndexLambda", {
-      environment: props.environment,
-      regionCode: props.regionCode,
-      searchDocumentsTable: discoveryTables.searchDocumentsTable,
-      removalPolicy,
-    });
-
     // Export DynamoDB table names to SSM for other domains to import
     new ssm.StringParameter(this, "ShelfItemsTableNameParameter", {
       parameterName: `/${props.environment}/shelf-discovery-domain/dynamodb/shelf-items-table-name`,
@@ -206,12 +176,8 @@ export class ShelfDiscoveryDomainStack extends cdk.Stack {
     const discoveryResolvers = new DiscoveryAppSyncResolversConstruct(this, "DiscoveryResolvers", {
       api: discoveryAppSync.api,
       searchProductsLambda: searchProductsLambda.function,
-      interpretCollectorQueryLambda: interpretCollectorQueryLambda.function,
       getFeedLambda: getFeedLambda.function,
-      generateFeedLambda: generateFeedLambda.function,
-      generateRecommendationsLambda: generateRecommendationsLambda.function,
       getCuratedCollectionLambda: getCuratedCollectionLambda.function,
-      updateSearchIndexLambda: updateSearchIndexLambda.function,
     });
   }
 }
