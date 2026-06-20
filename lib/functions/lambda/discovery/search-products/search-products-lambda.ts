@@ -315,6 +315,18 @@ exports.handler = async (event: { arguments?: Record<string, unknown>; headers?:
   const limit = parseLimit(args.limit);
   const nextToken = parseNextToken(args.nextToken);
   const search = buildSearchTerms(typeof args.query === 'string' ? args.query : '');
+
+  // Keyword search must be scoped to a category or a maker. Without a scope the
+  // only option is a full-table Scan, which DynamoDB walks in arbitrary order
+  // and caps at the first 500 items — so at catalog scale a keyword search
+  // silently misses most matches. A category/maker scope turns it into an
+  // indexed Query (GSI3-CategoryPrice / GSI1-MakerPublished) that is correct and
+  // bounded. Non-keyword browsing (filters only, or the feed) is unaffected.
+  const hasScope = !!makerUserId || (typeof args.categoryId === 'string' && args.categoryId.trim().length > 0);
+  if (search.normalizedQuery.length > 0 && !hasScope) {
+    throw new Error('Select a category to search by keyword.');
+  }
+
   const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
   if (!TABLE_NAME) {
