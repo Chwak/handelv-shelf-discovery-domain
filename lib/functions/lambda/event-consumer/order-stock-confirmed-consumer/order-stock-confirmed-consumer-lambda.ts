@@ -105,19 +105,33 @@ export const handler = async (event: SQSEvent): Promise<{
         // We only need to increment quantitySold here (public sales counter)
         const now = new Date().toISOString();
 
-        await dynamodbDoc.send(
-          new UpdateCommand({
-            TableName: SHELF_ITEMS_TABLE_NAME,
-            Key: { shelfItemId },
-            UpdateExpression: 'SET quantitySold = quantitySold + :qty, updatedAt = :now',
-            ExpressionAttributeValues: {
-              ':qty': quantity,
-              ':now': now,
-            },
-          })
-        );
-
-        console.log(`✅ Sale confirmed: shelfItemId=${shelfItemId}, quantitySold +${quantity}`);
+        try {
+          await dynamodbDoc.send(
+            new UpdateCommand({
+              TableName: SHELF_ITEMS_TABLE_NAME,
+              Key: { shelfItemId },
+              // if_not_exists: quantitySold is not initialized on publish, so a
+              // bare `quantitySold + :qty` throws on the first sale.
+              // attribute_exists: only count sales for items still on the shelf
+              // (a sold-out item lives in the sold-out table) — never create a
+              // phantom shelf item with only a sales counter.
+              UpdateExpression: 'SET quantitySold = if_not_exists(quantitySold, :zero) + :qty, updatedAt = :now',
+              ConditionExpression: 'attribute_exists(shelfItemId)',
+              ExpressionAttributeValues: {
+                ':qty': quantity,
+                ':zero': 0,
+                ':now': now,
+              },
+            })
+          );
+          console.log(`✅ Sale confirmed: shelfItemId=${shelfItemId}, quantitySold +${quantity}`);
+        } catch (err) {
+          if ((err as { name?: string }).name === 'ConditionalCheckFailedException') {
+            console.warn('Shelf item no longer on shelf (likely sold out/removed) — skipping sales increment', { shelfItemId });
+          } else {
+            throw err;
+          }
+        }
       }
 
       // Record idempotency

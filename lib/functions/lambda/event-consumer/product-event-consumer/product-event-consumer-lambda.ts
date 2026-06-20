@@ -223,6 +223,7 @@ async function handleProductPublished(client: DynamoDBDocumentClient, payload: P
     viewCount: 0,
     saveCount: 0,
     orderCount: 0,
+    quantitySold: 0, // maintained by order-stock-confirmed-consumer; drives sales-based ranking
     relevanceScore: 1.0,
     
     // Status tracking

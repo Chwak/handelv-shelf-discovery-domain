@@ -111,11 +111,13 @@ function isWithinEditDistance(source: string, target: string, maxDistance = 2): 
 }
 
 function popularityScore(item: Record<string, unknown>): number {
-  const orderCount = Number(item.orderCount) || 0;
+  // Sales are maintained under `quantitySold` (order-stock-confirmed-consumer);
+  // `orderCount` is legacy/never-written — fall back to it for safety.
+  const sold = Number(item.quantitySold) || Number(item.orderCount) || 0;
   const saveCount = Number(item.saveCount) || 0;
   const viewCount = Number(item.viewCount) || 0;
   const rating = Number(item.rating) || 0;
-  return orderCount * 2 + saveCount * 1.25 + viewCount * 0.1 + rating * 2;
+  return sold * 2 + saveCount * 1.25 + viewCount * 0.1 + rating * 2;
 }
 
 function computeRelevanceScore(
@@ -204,7 +206,10 @@ function itemToSearchResult(item: Record<string, unknown>) {
     primaryImageUrl: item.primaryImageUrl ?? null,
     viewCount: item.viewCount != null ? Number(item.viewCount) : null,
     saveCount: item.saveCount != null ? Number(item.saveCount) : null,
-    orderCount: item.orderCount != null ? Number(item.orderCount) : null,
+    // Expose real sales (quantitySold) through the existing orderCount field.
+    orderCount: item.quantitySold != null
+      ? Number(item.quantitySold)
+      : (item.orderCount != null ? Number(item.orderCount) : null),
     relevanceScore: computedScore != null ? computedScore : (item.relevanceScore != null ? Number(item.relevanceScore) : null),
   };
 }
